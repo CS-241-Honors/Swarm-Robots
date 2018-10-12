@@ -16,7 +16,7 @@ int main(int argc, char ** argv) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    s = getaddrinfo("www.illinois.edu", "80", &hints, &result);
+    s = getaddrinfo("fa18-cs241-330.cs.illinois.edu", "80", &hints, &result);
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));    
         exit(1);

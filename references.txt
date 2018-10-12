@@ -1,0 +1,2 @@
+* gethostbyname && getaddrinfo:
+https://www.binarytides.com/hostname-to-ip-address-c-sockets-linux/

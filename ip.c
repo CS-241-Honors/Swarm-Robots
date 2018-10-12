@@ -1,3 +1,6 @@
+//Copied from https://www.binarytides.com/hostname-to-ip-address-c-sockets-linux/
+//Only for trying to understand the implementation of host_name_toip
+//Equivalent to the system call, gethostbyname
 #include<stdio.h> //printf
 #include<string.h> //memset
 #include<stdlib.h> //for exit(0);
@@ -40,10 +43,10 @@ int hostname_to_ip(char * hostname , char* ip)
     }
  
     addr_list = (struct in_addr **) he->h_addr_list;
-     
     for(i = 0; addr_list[i] != NULL; i++) 
     {
         //Return the first one;
+        puts(inet_ntoa(*addr_list[i]));
         strcpy(ip , inet_ntoa(*addr_list[i]) );
         return 0;
     }

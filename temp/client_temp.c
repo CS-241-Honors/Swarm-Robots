@@ -11,20 +11,21 @@
 
 int exit_flag = 0; 
 
-static client_name[MAX_NAME_LENGTH + 1];
-static server_name[MAX_NAME_LENGTH + 1];
+static char client_name[MAX_NAME_LENGTH + 1];
+static char server_name[MAX_NAME_LENGTH + 1];
 
 int SIGINT_handler() {
     exit_flag = 1;
 }
 
-int receive_handler() {
+void * receive_handler() {
 
-
+    return NULL;
 }
 
-int send_handler() {
+void * send_handler() {
 
+    return NULL;
 }
 
 void remove_next_line(char * input) {
@@ -33,6 +34,7 @@ void remove_next_line(char * input) {
         if (input[itr] == '\n') {
             input[itr] = '\0';
             return;
+        }
     }
 }
 

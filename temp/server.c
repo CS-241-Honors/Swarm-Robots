@@ -3,10 +3,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 
 int main() {
@@ -37,11 +39,6 @@ int main() {
     //send the message
     //first the socket we want to send the data on
     send(client_socket, server_message, sizeof(server_message), 0);
-
-    while (1) {
-        pthread_create(send_message, );
-        pthread_create(receive_message, );
-    }
 
 
     //close the socket

@@ -23,9 +23,6 @@ void SIGINT_handler();
 void * receive_handler(void * args);
 
 void * send_handler() {
-
-    return NULL;
-}
 //replace '\n' by '\0' and return the position of '\n'
 int remove_next_line(char * input);
 int set_client_name();
@@ -175,12 +172,30 @@ void * receive_handler(void * args) {
     char server_response[MAX_MESSAGE_LENGTH + 1];
     server_response[0] = '\0';
     while (!exit_flag) {
-        recv(network_socket, & server_response, sizeof(server_response), 0);
-        if (server_response[0] != '\0') {
+        int recv_status = recv(network_socket, & server_response, sizeof(server_response), 0);
+        if (recv_status > 0) {
             fprintf(stdout, "Server: %s\n", server_response);
             //should be improved later
             memset(server_response, 0, MAX_MESSAGE_LENGTH);
         }
+    }
+    return NULL;
+}
+
+//>>>>>
+void * send_handler(void * args) {
+    int network_socket = (size_t) args;
+    char client_msg[MAX_MESSAGE_LENGTH + 1];
+    while (!exit_flag) {
+        if ( fgets(client_msg, MAX_MESSAGE_LENGTH) ) {
+            if (client_msg[0] = '\n') {
+                printf("The message must have length greater than 0");    
+            }
+            else {
+                fprintf(stdout, "%s: %s\n", client_name, client_msg);
+                send(network_socket, client_msg, strlen(client_msg), 0);    
+            }
+        }    
     }
     return NULL;
 }

@@ -13,7 +13,7 @@
 
 #include "common.h"
 
-int exit_flag = 0; 
+static int exit_flag = 0; 
 
 static char client_name[MAX_NAME_LENGTH + 1];
 static char server_name[MAX_NAME_LENGTH + 1];

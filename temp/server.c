@@ -11,6 +11,18 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <string.h>
+#include <signal.h>
+#include <pthread.h>
+
+#include "common.h"
+//>>>
+static int exit_flag = 0;
+
+void SIGINT_handler();
+void * receive_handler();
+void * send_handler();
+//>>>
 int main() {
     
     char server_message[256] = "You have reached the server!";
@@ -40,11 +52,63 @@ int main() {
     //first the socket we want to send the data on
     send(client_socket, server_message, sizeof(server_message), 0);
 
+    pthread_t receive_thread;
+    void * receive_args = (void *) ((size_t) client_socket);
+    if ( pthread_create(&receive_thread, NULL, (void *) receive_handler, receive_args) ) {
+        return FAILURE_VAL;
+    }
 
+    puts("61");
+    pthread_t send_thread;
+    void * send_args = (void *) ((size_t) client_socket); 
+    if ( pthread_create(&send_thread, NULL, (void *) send_handler, send_args) ) {
+        return FAILURE_VAL;
+    }
+
+    while (!exit_flag) {} 
     //close the socket
     close(server_socket);
 
 
 
     return 0;    
+}
+
+//>>>>>
+void SIGINT_handler() {
+    exit_flag = 1; 
+}
+
+//>>>>>
+void * receive_handler(void * args) {
+    int network_socket = (size_t) args;
+    char server_response[MAX_MESSAGE_LENGTH + 1];
+    server_response[0] = '\0';
+    while (!exit_flag) {
+        int recv_status = recv(network_socket, & server_response, sizeof(server_response), 0);
+        if (recv_status > 0) {
+            fprintf(stdout, "Server: %s\n", server_response);
+            //should be improved later
+            memset(server_response, 0, MAX_MESSAGE_LENGTH);
+        }
+    }
+    return NULL;
+}
+
+//>>>>>
+void * send_handler(void * args) {
+    int network_socket = (size_t) args;
+    char client_msg[MAX_MESSAGE_LENGTH + 1];
+    while (!exit_flag) {
+        if ( fgets(client_msg, MAX_MESSAGE_LENGTH, stdin) ) {
+            if (client_msg[0] == '\n') {
+                fprintf(stdout, "%s\n", "The message must have length greater than 0");
+            }
+            else {
+                fprintf(stdout, "Server: %s\n", client_msg);
+                send(network_socket, client_msg, strlen(client_msg), 0);
+            }
+        }
+    }
+    return NULL;
 }

@@ -19,10 +19,8 @@ static char client_name[MAX_NAME_LENGTH + 1];
 static char server_name[MAX_NAME_LENGTH + 1];
 
 void SIGINT_handler();
-
 void * receive_handler(void * args);
-
-void * send_handler() {
+void * send_handler(void * args);
 //replace '\n' by '\0' and return the position of '\n'
 int remove_next_line(char * input);
 int set_client_name();
@@ -76,7 +74,8 @@ int main() {
 
     // pthread send_handler
     pthread_t send_thread;
-    if ( pthread_create(&send_thread, NULL, (void *) send_handler, NULL) ) {
+    void * send_args = (void *) ((size_t) network_socket);
+    if ( pthread_create(&send_thread, NULL, (void *) send_handler, send_args) ) {
         return FAILURE_VAL;
     }
 
@@ -187,9 +186,9 @@ void * send_handler(void * args) {
     int network_socket = (size_t) args;
     char client_msg[MAX_MESSAGE_LENGTH + 1];
     while (!exit_flag) {
-        if ( fgets(client_msg, MAX_MESSAGE_LENGTH) ) {
-            if (client_msg[0] = '\n') {
-                printf("The message must have length greater than 0");    
+        if ( fgets(client_msg, MAX_MESSAGE_LENGTH, stdin) ) {
+            if (client_msg[0] == '\n') {
+                fprintf(stdout, "%s\n", "The message must have length greater than 0");    
             }
             else {
                 fprintf(stdout, "%s: %s\n", client_name, client_msg);

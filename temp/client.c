@@ -20,16 +20,14 @@ static char server_name[MAX_NAME_LENGTH + 1];
 
 void SIGINT_handler();
 
-void * receive_handler() {
-
-    return NULL;
-}
+void * receive_handler(void * args);
 
 void * send_handler() {
 
     return NULL;
 }
-void remove_next_line(char * input);
+//replace '\n' by '\0' and return the position of '\n'
+int remove_next_line(char * input);
 int set_client_name();
 int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len);
 
@@ -40,14 +38,14 @@ int main() {
 
     // Set up the name
     if (set_client_name() == FAILURE_VAL) {
-        exit(FAILURE_VAL);
+        return FAILURE_VAL;
     }
 
     // Get the IP address and the port the user wants to connect to
     char server_ip[50 + 1];
     char port_str[6 + 1];
     if (set_ip_and_port(server_ip, 50, port_str, 6) == FAILURE_VAL) {
-        exit(FAILURE_VAL);
+        return FAILURE_VAL;
     }
     char * dummy;
     long int port_num = strtol(port_str, &dummy, 10); 
@@ -67,20 +65,22 @@ int main() {
     // Print out if connected or not
     if (connection_status == -1) {
         printf("There is an error connecting to the server.\n");
-        exit(FAILURE_VAL);
+        return FAILURE_VAL;
     }
 
 
     // pthread receive_handler
     pthread_t receive_thread;
-    if ( pthread_create(&receive_thread, NULL, (void *) receive_handler, NULL) ) {
-        exit(FAILURE_VAL);
+    void * receive_args;
+    receive_args = (void *) ((size_t) network_socket);
+    if ( pthread_create(&receive_thread, NULL, (void *) receive_handler, receive_args) ) {
+        return FAILURE_VAL;
     }
 
     // pthread send_handler
     pthread_t send_thread;
     if ( pthread_create(&send_thread, NULL, (void *) send_handler, NULL) ) {
-        exit(FAILURE_VAL);
+        return FAILURE_VAL;
     }
 
     // exit
@@ -89,18 +89,20 @@ int main() {
     printf("See you, %s\n", client_name);
 
     close(network_socket);
-    exit(SUCCESS_VAL);
+    return SUCCESS_VAL;
 }
 
 //>>>>>
-void remove_next_line(char * input) {
+int remove_next_line(char * input) {
     int itr = 0;
     while (!exit_flag) {
         if (input[itr] == '\n') {
             input[itr] = '\0';
-            return;
+            return itr;
         }
+        itr++;
     }
+    exit(SUCCESS_VAL);
 }
 
 //>>>>>
@@ -118,15 +120,15 @@ int set_client_name() {
             }
             else {
                 remove_next_line(client_name);
-                exit(SUCCESS_VAL);
+                return SUCCESS_VAL;
             }
         }
         else {
             printf("Fail to get the name for some reason.\n");
-            exit(FAILURE_VAL);
+            return FAILURE_VAL;
         }
     }
-    exit(SUCCESS_VAL);
+    return SUCCESS_VAL;
 }
 
 //>>>>>
@@ -139,12 +141,12 @@ int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, in
             }
             else {
                 remove_next_line(server_ip_arr);
-                exit(SUCCESS_VAL);
+                break;
             }
         }
         else {
             printf("An error occurred for some reason.\n");
-            exit(FAILURE_VAL);
+            return FAILURE_VAL;
         }
     }
 
@@ -156,13 +158,29 @@ int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, in
             }
             else {
                 remove_next_line(port_arr);
-                exit(SUCCESS_VAL);
+                return  SUCCESS_VAL;
             }
         }
         else {
             printf("An error occurred for some reason.\n");
-            exit(FAILURE_VAL);
+            return FAILURE_VAL;
         }
     }
-    exit(SUCCESS_VAL);
+    return SUCCESS_VAL;
+}
+
+//>>>>>
+void * receive_handler(void * args) {
+    int network_socket = (size_t) args;
+    char server_response[MAX_MESSAGE_LENGTH + 1];
+    server_response[0] = '\0';
+    while (!exit_flag) {
+        recv(network_socket, & server_response, sizeof(server_response), 0);
+        if (server_response[0] != '\0') {
+            fprintf(stdout, "Server: %s\n", server_response);
+            //should be improved later
+            memset(server_response, 0, MAX_MESSAGE_LENGTH);
+        }
+    }
+    return NULL;
 }

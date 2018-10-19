@@ -1,59 +1,168 @@
-//type and protol needed to create the socket
-//specify the IP and the port to connect
-//return value that indicates if the connection is successful
-//recv() gives the data from the other end
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <string.h>
+#include <signal.h>
+#include <pthread.h>
+
+#include "common.h"
+
+int exit_flag = 0; 
+
+static char client_name[MAX_NAME_LENGTH + 1];
+static char server_name[MAX_NAME_LENGTH + 1];
+
+void SIGINT_handler();
+
+void * receive_handler() {
+
+    return NULL;
+}
+
+void * send_handler() {
+
+    return NULL;
+}
+void remove_next_line(char * input);
+int set_client_name();
+int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len);
+
 
 int main() {
-    //create a socket
-    int network_socket;
-    //first para is the domain of the socket
-    //second is the type of the socket: TCP / UDP
-    //Third is the protocol; 0 means the default protocol of TCP
-    network_socket = socket(AF_INET, SOCK_STREAM, 0);
+    // Exit if CTRL+C
+    signal(SIGINT, SIGINT_handler);
 
-    //specify the address structure 
-    struct sockaddr_in server_address;
-    // type of the address
-    server_address.sin_family = AF_INET;     
-    //port we want to connect to 
-    //htons convert the actual port number to one recognized by the function
-    server_address.sin_port = htons(9002); 
-    //specify the actual IP address
-
-    //sin_addr is a structure 
-    //sin_addr.s_addr is the real address
-    //INADDR_ANY is the local address
-    server_address.sin_addr.s_addr = INADDR_ANY;
-
-    //first para is the socket
-    //third is the size of the address
-    //returns an int to indicate if the connection is successful or not
-    //0 means successful, -1 means failed
-    int connection_status = connect(network_socket, (struct sockaddr *) & server_address, sizeof(server_address) );
-    //check for error with the connection
-    if (connection_status == -1) {
-        printf("There was an error making a a connnection ot the remote socket \n \n");    
+    // Set up the name
+    if (set_client_name() == FAILURE_VAL) {
+        exit(FAILURE_VAL);
     }
 
-    //once connected, we either send or receives data
-    //receive data from the server
-    //first para is the socket
-    //create a string to hold the information getting back from the server
-    char server_response[256];
-    recv(network_socket, & server_response, sizeof(server_response), 0);
+    // Get the IP address and the port the user wants to connect to
+    char server_ip[50 + 1];
+    char port_str[6 + 1];
+    if (set_ip_and_port(server_ip, 50, port_str, 6) == FAILURE_VAL) {
+        exit(FAILURE_VAL);
+    }
+    char * dummy;
+    long int port_num = strtol(port_str, &dummy, 10); 
+    
+    // Create the socket
+    int network_socket;
+    network_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    // print out the server's reponse
-    printf("The server sent the data: %s\n", server_response);
+    struct sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons((int) port_num);
+    server_address.sin_addr.s_addr = inet_addr(server_ip);
 
-    // close the socket
+    // Connect
+    int connection_status = connect(network_socket, (struct sockaddr *) & server_address, sizeof(server_address));
+
+    // Print out if connected or not
+    if (connection_status == -1) {
+        printf("There is an error connecting to the server.\n");
+        exit(FAILURE_VAL);
+    }
+
+
+    // pthread receive_handler
+    pthread_t receive_thread;
+    if ( pthread_create(&receive_thread, NULL, (void *) receive_handler, NULL) ) {
+        exit(FAILURE_VAL);
+    }
+
+    // pthread send_handler
+    pthread_t send_thread;
+    if ( pthread_create(&send_thread, NULL, (void *) send_handler, NULL) ) {
+        exit(FAILURE_VAL);
+    }
+
+    // exit
+    while (!exit_flag) {}
+    
+    printf("See you, %s\n", client_name);
+
     close(network_socket);
-    return 0;    
+    exit(SUCCESS_VAL);
+}
+
+//>>>>>
+void remove_next_line(char * input) {
+    int itr = 0;
+    while (!exit_flag) {
+        if (input[itr] == '\n') {
+            input[itr] = '\0';
+            return;
+        }
+    }
+}
+
+//>>>>>
+void SIGINT_handler() {
+    exit_flag = 1;
+}
+
+//>>>>>
+int set_client_name() {
+    while (!exit_flag) {
+        printf("Enter a name with length greater than 0: ");
+        if ( fgets(client_name, MAX_NAME_LENGTH, stdin) ) {
+            if (client_name[0] == '\n') {
+                printf("The length of the name must be greater than 0.\n");
+            }
+            else {
+                remove_next_line(client_name);
+                exit(SUCCESS_VAL);
+            }
+        }
+        else {
+            printf("Fail to get the name for some reason.\n");
+            exit(FAILURE_VAL);
+        }
+    }
+    exit(SUCCESS_VAL);
+}
+
+//>>>>>
+int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len) {
+    while (!exit_flag) {
+        printf("Enter the IP address you would like to connect to: ");
+        if ( fgets(server_ip_arr, server_ip_len, stdin) ) {
+            if (server_ip_arr[0] == '\n') {
+                printf("Invalid IP address\n");
+            }
+            else {
+                remove_next_line(server_ip_arr);
+                exit(SUCCESS_VAL);
+            }
+        }
+        else {
+            printf("An error occurred for some reason.\n");
+            exit(FAILURE_VAL);
+        }
+    }
+
+    while (!exit_flag) {
+        printf("Enter the port you would like to connect to: ");
+        if ( fgets(port_arr, port_len, stdin) ) {
+            if (server_ip_arr[0] == '\n') {
+                printf("Invalid port\n");
+            }
+            else {
+                remove_next_line(port_arr);
+                exit(SUCCESS_VAL);
+            }
+        }
+        else {
+            printf("An error occurred for some reason.\n");
+            exit(FAILURE_VAL);
+        }
+    }
+    exit(SUCCESS_VAL);
 }

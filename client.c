@@ -14,11 +14,16 @@
 #include "common.h"
 #include "user_node.h"
 #include "parse.h"
+
 //-------------------------------------------------------------
 static pthread_rwlock_t rwlock;
 static int exit_flag = 0; 
 static char this_user_name[MAX_NAME_LENGTH + 1];
-user_info * all_other_users = NULL;
+static user_info * other_user1;
+static user_info * other_user2;
+static user_info * other_user3;
+static user_info * all_other_users = NULL; // linked list
+
 //-------------------------------------------------------------
 void SIGINT_handler();
 void sent_msg_to_all(char * msg);
@@ -26,24 +31,26 @@ void * recv_handler(void * args);
 void * send_handler(void * args);
 
 //-------------------------------------------------------------
-
 int main(int argc, char ** argv) {
     if (argc < 1) {
         fprintf(stderr, "please specify which bot you are (1, 2, 3, or 4");
         printf("correct usage: %s\n", "number");
         return -1;
     }
-    // Set up the name
-    if (set_name(server_name) == FAILURE_VAL) {
+    if (set_name(this_user__name) == FAILURE_VAL) {
         puts("Failed to create the name");
         return -1;
     }
     pthread_rwlock_init(&rwlock, NULL);
     signal(SIGINT, SIGINT_handler);
     //-------------------------------------------------
-    user_info * other_user1;
-    user_info * other_user2;
-    user_info * other_user3;
+    int bot_num = atoi(argv[0]);
+    int connect_status = connect_to_others(bot_num);
+    if (connect_status != 0) {
+        puts("Failed to connect");
+        return -1;
+    }
+    //-------------------------------------------------
     pthread_t recv_thread1;
     pthread_t recv_thread2;
     pthread_t recv_thread3;
@@ -66,12 +73,12 @@ int main(int argc, char ** argv) {
     return 0;
 }
 //-------------------------------------------------------------
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    
+
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void SIGINT_handler() {
     exit_flag = 1;
     //TODO close(network_socket);
+    pthread_rwlock_wrlock(&rwlock); 
 }
 
 
@@ -103,7 +110,7 @@ void * recv_handler(void * _other_user) {
             //the client exited 
             if ( !strcmp(msg, EXIT_MSG) ) {
                 pthread_rwlock_wrlock(&rwlock); 
-                delete_client(&all_other_users, other_user->ip, other_user->port);
+                delete_user_info(&all_other_users, other_user->ip, other_user->port);
                 pthread_rwlock_unlock(&rwlock);
                 return NULL;
             }    
@@ -114,6 +121,10 @@ void * recv_handler(void * _other_user) {
             }
         }
     }
+    pthread_rwlock_wrlock(&rwlock);
+    close(other_user->socket);
+    delete_user_info(other->ip, other->port);
+    pthread_rwlock_unlock(&rwlock);
     return NULL;
 }
 
@@ -138,25 +149,6 @@ void * send_handler(void * dummy) {
             }
         }    
         msg[0] = '\0';
-    }
-    return NULL;
-}
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-/*
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void * send_handler(void * args) {
-    int network_socket = (size_t) args;
-    char client_msg[MAX_MESSAGE_LENGTH + 1];
-    while (!exit_flag) {
-        if ( fgets(client_msg, MAX_MESSAGE_LENGTH, stdin) ) {
-            if (client_msg[0] == '\n') {
-                fprintf(stdout, "%s\n", "The message must have length greater than 0");    
-            }
-            else {
-                fprintf(stdout, "%s: %s\n", client_name, client_msg);
-                send(network_socket, client_msg, strlen(client_msg), 0);    
-            }
-        }    
     }
     return NULL;
 }
@@ -191,4 +183,4 @@ void * connect_handler(void * args) {
         return FAILURE_VAL;
     }
 }
-*/
+

@@ -12,7 +12,7 @@
 #include <pthread.h>
 
 #include "common.h"
-
+//-------------------------------------------------------------
 static int exit_flag = 0; 
 static char client_name[MAX_NAME_LENGTH + 1];
 static char server_name[MAX_NAME_LENGTH + 1];
@@ -25,6 +25,7 @@ int remove_next_line(char * input);
 int set_client_name();
 int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len);
 
+//-------------------------------------------------------------
 
 int main() {
     // Exit if CTRL+C
@@ -86,8 +87,9 @@ int main() {
     close(network_socket);
     return SUCCESS_VAL;
 }
+//-------------------------------------------------------------
 
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 int remove_next_line(char * input) {
     int itr = 0;
     while (!exit_flag) {
@@ -99,13 +101,12 @@ int remove_next_line(char * input) {
     }
     exit(SUCCESS_VAL);
 }
-
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void SIGINT_handler() {
     exit_flag = 1;
 }
 
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 int set_client_name() {
     while (!exit_flag) {
         printf("Enter a name with length greater than 0: ");
@@ -126,7 +127,7 @@ int set_client_name() {
     return SUCCESS_VAL;
 }
 
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len) {
     while (!exit_flag) {
         printf("Enter the IP address you would like to connect to: ");
@@ -164,7 +165,7 @@ int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, in
     return SUCCESS_VAL;
 }
 
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * receive_handler(void * args) {
     int network_socket = (size_t) args;
     char server_response[MAX_MESSAGE_LENGTH + 1];
@@ -180,7 +181,7 @@ void * receive_handler(void * args) {
     return NULL;
 }
 
-//>>>>>
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * send_handler(void * args) {
     int network_socket = (size_t) args;
     char client_msg[MAX_MESSAGE_LENGTH + 1];

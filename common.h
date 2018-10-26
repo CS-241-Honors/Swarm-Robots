@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <pthread.h>
 
+//macros
 #define MAX_NAME_LENGTH 100
 #define MAX_MESSAGE_LENGTH 1000
 #define FAILURE_VAL (-1)

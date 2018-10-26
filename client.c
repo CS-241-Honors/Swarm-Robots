@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
         print_error("Failed to create threads");
         return -1;
     }
-    void * dummy;
+    void * dummy = NULL;
     pthread_join(listen_thread,  &dummy);
     pthread_join(connect_thread, &dummy);
     pthread_join(receive_thread, &dummy);
@@ -79,48 +79,15 @@ void SIGINT_handler() {
 
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-
-int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len) {
-    while (!exit_flag) {
-        printf("Enter the IP address you would like to connect to: ");
-        if ( fgets(server_ip_arr, server_ip_len, stdin) ) {
-            if (server_ip_arr[0] == '\n') {
-                printf("Invalid IP address\n");
-            }
-            else {
-                remove_next_line(server_ip_arr);
-                break;
-            }
-        }
-        else {
-            printf("An error occurred for some reason.\n");
-            return FAILURE_VAL;
-        }
-    }
-
-    while (!exit_flag) {
-        printf("Enter the port you would like to connect to: ");
-        if ( fgets(port_arr, port_len, stdin) ) {
-            if (server_ip_arr[0] == '\n') {
-                printf("Invalid port\n");
-            }
-            else {
-                remove_next_line(port_arr);
-                return  SUCCESS_VAL;
-            }
-        }
-        else {
-            printf("An error occurred for some reason.\n");
-            return FAILURE_VAL;
-        }
-    }
-    return SUCCESS_VAL;
-}
-
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-/*
 void * receive_handler(void * args) {
+    char msg[MAX_MESSAGE_LENGTH + 1];
+    memset(msg, 0, MAX_MESSAGE_LENGTH + 1);
+
+    
+
+
+
     int network_socket = (size_t) args;
     char server_response[MAX_MESSAGE_LENGTH + 1];
     server_response[0] = '\0';
@@ -135,6 +102,7 @@ void * receive_handler(void * args) {
     return NULL;
 }
 
+/*
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * send_handler(void * args) {
     int network_socket = (size_t) args;

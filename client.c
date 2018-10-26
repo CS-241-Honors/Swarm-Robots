@@ -29,8 +29,8 @@ void * send_handler(void * args);
 
 int main(int argc, char ** argv) {
     if (argc < 1) {
-        print_error("please enter the number of bot you are");
-        printf("correct usage: %s\n", "to do");
+        fprintf(stderr, "please specify which bot you are (1, 2, 3, or 4");
+        printf("correct usage: %s\n", "number");
         return -1;
     }
     // Set up the name
@@ -40,26 +40,29 @@ int main(int argc, char ** argv) {
     }
     pthread_rwlock_init(&rwlock, NULL);
     signal(SIGINT, SIGINT_handler);
-
-
     //-------------------------------------------------
-    pthread_t msg_thread;
-    void * msg_arg = NULL;
-    if (pthread_create(&msg_thread, NULL, (void *) msg_handler, msg_arg)) {
-        puts("Failed to create threads.");
+    user_info * other_user1;
+    user_info * other_user2;
+    user_info * other_user3;
+    pthread_t recv_thread1;
+    pthread_t recv_thread2;
+    pthread_t recv_thread3;
+    pthread_t send_thread;
+    if (pthread_create(&recv_thread1, NULL, recv_handler, (void *) other_user1) ||
+        pthread_create(&recv_thread2, NULL, recv_handler, (void *) other_user2) ||
+        pthread_create(&recv_thread3, NULL, recv_handler, (void *) other_user3) ||
+        pthread_create(&send_thread,  NULL, send_handler, NULL)) {
+        fprintf(stderr, "Failed to create threads.\n"); 
         return -1;
     }
-
-    //-------------------------------------------------
     void * dummy = NULL;
-    pthread_join(msg_thread, &dummy);
-
-    // exit
-    //while (!exit_flag) {}
-    
+    pthread_join(recv_thread1, &dummy);
+    pthread_join(recv_thread2, &dummy);
+    pthread_join(recv_thread3, &dummy);
+    pthread_join(send_thread, &dummy);
+    //-------------------------------------------------
     printf("See you, %s\n", server_name);
     pthread_rwlock_destroy(&rwlock);
-    //TODO close(network_socket);
     return 0;
 }
 //-------------------------------------------------------------
@@ -68,6 +71,7 @@ int main(int argc, char ** argv) {
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void SIGINT_handler() {
     exit_flag = 1;
+    //TODO close(network_socket);
 }
 
 

@@ -12,23 +12,18 @@
 #include <pthread.h>
 
 #include "common.h"
-#include "client_node.h"
+#include "user_node.h"
 #include "parse.h"
 //-------------------------------------------------------------
-
-client * head;
-//-------------------------------------------------------------
+static pthread_rwlock_t rwlock;
 static int exit_flag = 0; 
-static char server_name[MAX_NAME_LENGTH + 1];
-
+static char this_user_name[MAX_NAME_LENGTH + 1];
+user_info * all_other_users = NULL;
+//-------------------------------------------------------------
 void SIGINT_handler();
-void * listen_handler(void * args) {return NULL;}
-void * connect_handler(void * args) {return NULL;}
-void * receive_handler(void * args) {return NULL;}
-void * send_handler(void * args) {return NULL;}
-void print_error(char * error){}
-
-//int set_ip_and_port(char * server_ip_arr, int server_ip_len, char * port_arr, int port_len);
+void sent_msg_to_all(char * msg);
+void * recv_handler(void * args);
+void * send_handler(void * args);
 
 //-------------------------------------------------------------
 
@@ -38,40 +33,38 @@ int main(int argc, char ** argv) {
         printf("correct usage: %s\n", "to do");
         return -1;
     }
-    signal(SIGINT, SIGINT_handler);
-
     // Set up the name
     if (set_name(server_name) == FAILURE_VAL) {
+        puts("Failed to create the name");
+        return -1;
+    }
+    pthread_rwlock_init(&rwlock, NULL);
+    signal(SIGINT, SIGINT_handler);
+
+
+    //-------------------------------------------------
+    pthread_t msg_thread;
+    void * msg_arg = NULL;
+    if (pthread_create(&msg_thread, NULL, (void *) msg_handler, msg_arg)) {
+        puts("Failed to create threads.");
         return -1;
     }
 
-    pthread_t listen_thread;
-    pthread_t connect_thread;
-    pthread_t receive_thread;
-    pthread_t send_thread;
-
-    if (pthread_create(&listen_thread,  NULL, (void *) listen_handler,  NULL)  ||
-        pthread_create(&connect_thread, NULL, (void *) connect_handler, NULL) ||
-        pthread_create(&receive_thread, NULL, (void *) receive_handler, NULL) ||
-        pthread_create(&send_thread,    NULL, (void *) send_handler,    NULL)) {
-        print_error("Failed to create threads");
-        return -1;
-    }
+    //-------------------------------------------------
     void * dummy = NULL;
-    pthread_join(listen_thread,  &dummy);
-    pthread_join(connect_thread, &dummy);
-    pthread_join(receive_thread, &dummy);
-    pthread_join(send_thread,    &dummy);
+    pthread_join(msg_thread, &dummy);
 
     // exit
     //while (!exit_flag) {}
     
     printf("See you, %s\n", server_name);
-
+    pthread_rwlock_destroy(&rwlock);
     //TODO close(network_socket);
     return 0;
 }
 //-------------------------------------------------------------
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void SIGINT_handler() {
     exit_flag = 1;
@@ -79,29 +72,72 @@ void SIGINT_handler() {
 
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+void sent_msg_to_all(char * msg) {
+    size_t msg_len = sizeof(msg);
+    if (msg_len == 0) {
+        return;    
+    }
+    pthread_rwlock_rdlock(&rwlock); 
+    user_info * itr = all_other_users;
+    while (itr) {
+        int network_socket = itr->socket; 
+        send(network_socket, msg, msg_len, 0); 
+        itr = itr->next;
+    }
+    pthread_rwlock_unlock(&rwlock);
+}
+
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void * receive_handler(void * args) {
+void * recv_handler(void * _other_user) { 
+    user_info * other_user = (user_info * ) _other_user;
     char msg[MAX_MESSAGE_LENGTH + 1];
     memset(msg, 0, MAX_MESSAGE_LENGTH + 1);
 
-    
-
-
-
-    int network_socket = (size_t) args;
-    char server_response[MAX_MESSAGE_LENGTH + 1];
-    server_response[0] = '\0';
     while (!exit_flag) {
-        int recv_status = recv(network_socket, & server_response, sizeof(server_response), 0);
+        int recv_status = recv(other_user->socket, &msg, 1000, 0);
         if (recv_status > 0) {
-            fprintf(stdout, "Server: %s\n", server_response);
-            //should be improved later
-            memset(server_response, 0, MAX_MESSAGE_LENGTH);
+            //the client exited 
+            if ( !strcmp(msg, EXIT_MSG) ) {
+                pthread_rwlock_wrlock(&rwlock); 
+                delete_client(&all_other_users, other_user->ip, other_user->port);
+                pthread_rwlock_unlock(&rwlock);
+                return NULL;
+            }    
+            // check if the message if empty
+            else if ( msg[0] != '\0' ) {
+                printf("%s: %s\n", other_user->name, msg);
+                memset(msg, 0, MAX_MESSAGE_LENGTH + 1);
+            }
         }
     }
     return NULL;
 }
 
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+void * send_handler(void * dummy) {
+    (void) dummy;
+    size_t total_len = strlen(this_user_name) + 2 + MAX_MESSAGE_LENGTH + 1;
+    char name_and_msg[total_len];
+    strcpy(name_and_msg, this_user_name);
+    strcpy(name_and_msg + strlen(this_user_name), ": ");
+    char * msg = name_and_msg + strlen(this_user_name) + 2;
+    memcpy(msg, 0, MAX_MESSAGE_LENGTH + 1);
+    
+    while (!exit_flag) {
+        if ( fgets(msg, MAX_MESSAGE_LENGTH, stdin) ) {
+            if (msg[0] == '\n') {
+                fprintf(stderr, "%s\n", "The message must have length greater than 0");    
+            }
+            else {
+                remove_next_line(msg);
+                send_msg_to_all(msg);    
+            }
+        }    
+        msg[0] = '\0';
+    }
+    return NULL;
+}
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 /*
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * send_handler(void * args) {

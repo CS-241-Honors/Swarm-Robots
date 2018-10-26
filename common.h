@@ -17,4 +17,7 @@
 #define FAILURE_VAL (-1)
 #define SUCCESS_VAL 0
 
-
+#define port1 5000
+#define port2 5001
+#define port3 5002
+#define port4 5003

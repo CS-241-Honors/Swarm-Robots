@@ -1,0 +1,16 @@
+#include <string.h>
+#include "common.h"
+
+typedef struct client {
+    int socket;
+    char ip[50 + 1]; //maximum 50 bytes allowed
+    long int port;
+    char name[MAX_NAME_LENGTH + 1];
+    struct client * next;
+} client;
+
+int insert_client(client * new);
+int create_client(char * ip, long int port, char * client_name);
+void delete_client(char * ip, long int port);
+void delete_all_client();
+

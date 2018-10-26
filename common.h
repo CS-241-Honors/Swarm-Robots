@@ -15,9 +15,9 @@
 #define MAX_NAME_LENGTH 100
 #define MAX_MESSAGE_LENGTH 1000
 
-#define port1 5000
-#define port2 5001
-#define port3 5002
-#define port4 5003
+#define PORT1 5000
+#define PORT2 5001
+#define PORT3 5002
+#define PORT4 5003
 
-#define local_ip "127.0.0.1"
+#define LOCAL_IP "127.0.0.1"

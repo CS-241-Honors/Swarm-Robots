@@ -77,10 +77,7 @@ int main(int argc, char ** argv) {
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void SIGINT_handler() {
     exit_flag = 1;
-    //TODO close(network_socket);
-    pthread_rwlock_wrlock(&rwlock); 
 }
-
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void sent_msg_to_all(char * msg) {
@@ -154,33 +151,66 @@ void * send_handler(void * dummy) {
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void * connect_handler(void * args) {
-    // Get the IP address and the port the user wants to connect to
-    char server_ip[50 + 1];
-    char port_str[6 + 1];
-    if (set_ip_and_port(server_ip, 50, port_str, 6) == FAILURE_VAL) {
-        return FAILURE_VAL;
+void default_address_setup(struct sock_addr_in * address, char * ip, long int port) {
+    server_address->sin_family = AF_INET;
+    server_address->sin_port = htons((int) port);
+    server_address->sin_addr.s_addr = inet_addr(ip);
+}
+
+// 1 connects to 2, 3, 4; 1 receives 
+// 2 connects to    3, 4; 2 receives 1
+// 3 connects to       4; 3 receives 1, 2
+// 4 connects to        ; 1 receives 1, 2, 3
+int connect_handler(int bot_num) {
+    if (num == 1) {
+        int socket2 = socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in address2;
+        default_address_setup(&address2, LOCAL_IP, PORT2);
+        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
+        if (status2 == -1) {
+            return -1;    
+        }
+        int socket3 = socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in address3;
+        default_address_setup(&address3, LOCAL_IP, PORT3);
+        int status3 = connect(socket3, (struct sockaddr *) & server_address, sizeof(address3));
+        if (status3 == -1) {
+            return -1;    
+        }
+        int socket4 = socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in address4;
+        default_address_setup(&address4, LOCAL_IP, PORT4);
+        int status4 = connect(socket4, (struct sockaddr *) & server_address, sizeof(address4));
+        if (status4 == -1) {
+            return -1;     
+        }
     }
-    char * dummy;
-    long int port_num = strtol(port_str, &dummy, 10); 
-    
-    // Create the socket
-    int network_socket;
-    network_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-    struct sockaddr_in server_address;
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons((int) port_num);
-    server_address.sin_addr.s_addr = inet_addr(server_ip);
-
-    pthread_t connect_thread;
-    // Connect
-    int connection_status = connect(network_socket, (struct sockaddr *) & server_address, sizeof(server_address));
-
-    // Print out if connected or not
-    if (connection_status == -1) {
-        printf("There is an error connecting to the server.\n");
-        return FAILURE_VAL;
+    else if (num == 2) {
+        int socket3 = socket(AF_INET, SOCK_STREAM, 0);
+        int socket4 = socket(AF_INET, SOCK_STREAM, 0);
+        struct sockaddr_in address3;
+        struct sockaddr_in address4;
+        default_address_setup(&address2, LOCAL_IP, PORT2);
+        default_address_setup(&address3, LOCAL_IP, PORT3);
+        default_address_setup(&address4, LOCAL_IP, PORT4);
+        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
+        int status3 = connect(socket3, (struct sockaddr *) & server_address, sizeof(address3));
+        int status4 = connect(socket4, (struct sockaddr *) & server_address, sizeof(address4));
+        if (status2 == -1 || status3 == -1 || status4 == -1) {
+            return -1;     
+        }
+        
     }
+    else if (num == 3) {
+        
+    }
+    else if (num == 4) {
+        
+    }
+    else {
+        puts("Incorrect argument! Make sure the number passed in is between 1 and 4");
+        exit(1);
+    }
+    return 0;
 }
 

@@ -20,6 +20,8 @@ client * find_client(client ** head_addr, char * ip, long int port);
 void delete_client(client ** head_addr, char * ip, long int port);
 void delete_all_client(client ** head_addr);
 
+//-------------------------------------------------------------
+
 client * create_client(int socket, char * ip, long int port, char * client_name) {
     assert(strlen(ip) <= 50);
     assert(strlen(client_name) <= MAX_NAME_LENGTH);

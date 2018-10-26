@@ -14,10 +14,10 @@
 //macros
 #define MAX_NAME_LENGTH 100
 #define MAX_MESSAGE_LENGTH 1000
-#define FAILURE_VAL (-1)
-#define SUCCESS_VAL 0
 
 #define port1 5000
 #define port2 5001
 #define port3 5002
 #define port4 5003
+
+#define local_ip "127.0.0.1"

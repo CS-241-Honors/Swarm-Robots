@@ -161,6 +161,29 @@ void default_address_setup(struct sock_addr_in * address, char * ip, long int po
 // 2 connects to    3, 4; 2 receives 1
 // 3 connects to       4; 3 receives 1, 2
 // 4 connects to        ; 1 receives 1, 2, 3
+
+
+int connect_helper(long int port) {
+    int socket = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in address;
+    address.sin_family = AF_INET;
+    address.sin_port = htons((int) port);
+    address.sin_addr.s_addr = inet_addr(ip);
+        
+        
+        
+        default_address_setup(&address2, LOCAL_IP, PORT2);
+        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
+        if (status2 == -1) {
+            return -1;    
+        }
+    
+}
+
+int receive_helper(int from) {
+    
+}
+
 int connect_handler(int bot_num) {
     if (num == 1) {
         int socket2 = socket(AF_INET, SOCK_STREAM, 0);
@@ -183,6 +206,9 @@ int connect_handler(int bot_num) {
         int status4 = connect(socket4, (struct sockaddr *) & server_address, sizeof(address4));
         if (status4 == -1) {
             return -1;     
+        }
+        else {
+            
         }
     }
     else if (num == 2) {

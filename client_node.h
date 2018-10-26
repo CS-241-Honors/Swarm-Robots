@@ -12,9 +12,10 @@ typedef struct client {
 // next value is set to NULL
 client * create_client(int socket, char * ip, long int port, char * client_name);
 
-// ** so that we can directly modify the head pointer
+// client ** so that we can directly modify the head pointer
 void insert_client(client ** head_addr, client * new_node);
-void find_client(client ** head_addr, char * ip, long int port);
+// return NULL if not found
+client * find_client(client ** head_addr, char * ip, long int port);
 void delete_client(client ** head_addr, char * ip, long int port);
 void delete_all_client(client ** head_addr);
 

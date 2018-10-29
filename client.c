@@ -21,23 +21,24 @@ static int exit_flag = 0;
 static char this_user_name[MAX_NAME_LENGTH + 1];
 static user_info * other_user1;
 static user_info * other_user2;
-static user_info * other_user3;
+//static user_info * other_user3;
 static user_info * all_other_users = NULL; // linked list
 
 //-------------------------------------------------------------
 void SIGINT_handler();
-void sent_msg_to_all(char * msg);
+void send_msg_to_all(char * msg);
 void * recv_handler(void * args);
 void * send_handler(void * args);
 
+int connect_to_others(int bot_num);
 //-------------------------------------------------------------
 int main(int argc, char ** argv) {
     if (argc < 1) {
-        fprintf(stderr, "please specify which bot you are (1, 2, 3, or 4");
+        fprintf(stderr, "please specify which bot you are (1, 2, or3");
         printf("correct usage: %s\n", "number");
         return -1;
     }
-    if (set_name(this_user__name) == FAILURE_VAL) {
+    if (set_name(this_user_name) == -1) {
         puts("Failed to create the name");
         return -1;
     }
@@ -53,11 +54,9 @@ int main(int argc, char ** argv) {
     //-------------------------------------------------
     pthread_t recv_thread1;
     pthread_t recv_thread2;
-    pthread_t recv_thread3;
     pthread_t send_thread;
     if (pthread_create(&recv_thread1, NULL, recv_handler, (void *) other_user1) ||
         pthread_create(&recv_thread2, NULL, recv_handler, (void *) other_user2) ||
-        pthread_create(&recv_thread3, NULL, recv_handler, (void *) other_user3) ||
         pthread_create(&send_thread,  NULL, send_handler, NULL)) {
         fprintf(stderr, "Failed to create threads.\n"); 
         return -1;
@@ -65,10 +64,9 @@ int main(int argc, char ** argv) {
     void * dummy = NULL;
     pthread_join(recv_thread1, &dummy);
     pthread_join(recv_thread2, &dummy);
-    pthread_join(recv_thread3, &dummy);
     pthread_join(send_thread, &dummy);
     //-------------------------------------------------
-    printf("See you, %s\n", server_name);
+    printf("See you, %s\n", this_user_name);
     pthread_rwlock_destroy(&rwlock);
     return 0;
 }
@@ -80,7 +78,7 @@ void SIGINT_handler() {
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-void sent_msg_to_all(char * msg) {
+void send_msg_to_all(char * msg) {
     size_t msg_len = sizeof(msg);
     if (msg_len == 0) {
         return;    
@@ -120,7 +118,7 @@ void * recv_handler(void * _other_user) {
     }
     pthread_rwlock_wrlock(&rwlock);
     close(other_user->socket);
-    delete_user_info(other->ip, other->port);
+    delete_user_info(&all_other_users, other_user->ip, other_user->port);
     pthread_rwlock_unlock(&rwlock);
     return NULL;
 }
@@ -151,6 +149,7 @@ void * send_handler(void * dummy) {
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+/*
 void default_address_setup(struct sock_addr_in * address, char * ip, long int port) {
     server_address->sin_family = AF_INET;
     server_address->sin_port = htons((int) port);
@@ -238,5 +237,9 @@ int connect_handler(int bot_num) {
         exit(1);
     }
     return 0;
+}
+*/
+int connect_to_others(bot_num) {
+    return 0;    
 }
 

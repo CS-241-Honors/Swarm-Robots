@@ -19,9 +19,9 @@
 static pthread_rwlock_t rwlock;
 static int exit_flag = 0; 
 static char this_user_name[MAX_NAME_LENGTH + 1];
-static user_info * other_user1;
-static user_info * other_user2;
-//static user_info * other_user3;
+static user_info * other_user1 = NULL;
+static user_info * other_user2 = NULL;
+//static user_info * user3 = NULL;
 static user_info * all_other_users = NULL; // linked list
 
 //-------------------------------------------------------------
@@ -30,7 +30,8 @@ void send_msg_to_all(char * msg);
 void * recv_handler(void * args);
 void * send_handler(void * args);
 
-int connect_to_others(int bot_num);
+void * listen_handler(void * bot_num);
+void * connect_handler(void * bot_num);
 //-------------------------------------------------------------
 int main(int argc, char ** argv) {
     if (argc < 1) {
@@ -45,11 +46,12 @@ int main(int argc, char ** argv) {
     pthread_rwlock_init(&rwlock, NULL);
     signal(SIGINT, SIGINT_handler);
     //-------------------------------------------------
-    int bot_num = atoi(argv[0]);
-    int connect_status = connect_to_others(bot_num);
-    if (connect_status != 0) {
+    pthread_t connect_thread;
+    pthread_t listen_thread;
+    if (pthread_create(&connect_thread, NULL, connect_handler, (void*) argv[0]) ||
+        pthread_create(&listen_thread, NULL, listen_handler, (void *) argv[0])) {
         puts("Failed to connect");
-        return -1;
+        return -1;    
     }
     //-------------------------------------------------
     pthread_t recv_thread1;
@@ -149,97 +151,53 @@ void * send_handler(void * dummy) {
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-/*
-void default_address_setup(struct sock_addr_in * address, char * ip, long int port) {
-    server_address->sin_family = AF_INET;
-    server_address->sin_port = htons((int) port);
-    server_address->sin_addr.s_addr = inet_addr(ip);
+
+void default_address_setup(struct sockaddr_in * address, char * ip, long int port) {
+    address->sin_family = AF_INET;
+    address->sin_port = htons((int) port);
+    address->sin_addr.s_addr = inet_addr(ip);
 }
 
-// 1 connects to 2, 3, 4; 1 receives 
-// 2 connects to    3, 4; 2 receives 1
-// 3 connects to       4; 3 receives 1, 2
-// 4 connects to        ; 1 receives 1, 2, 3
-
-
-int connect_helper(long int port) {
-    int socket = socket(AF_INET, SOCK_STREAM, 0);
+void * connect_handler(void * _bot_num) {
+    int bot_num = (int) _bot_num;
+    long int port = 5000 + (bot_num + 1) % 3; //hardcoded
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_port = htons((int) port);
-    address.sin_addr.s_addr = inet_addr(ip);
-        
-        
-        
-        default_address_setup(&address2, LOCAL_IP, PORT2);
-        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
-        if (status2 == -1) {
-            return -1;    
-        }
-    
+    default_address_setup(&address, LOCAL_IP, port);
+    int status = connect(sock, (struct sockaddr *) & address, sizeof(address));
+    (void) status; 
+    char name[20];
+    memcpy(name, "Bot ", 4);
+    int length = snprintf( NULL, 0, "%d", (bot_num + 1) % 3 );
+    snprintf( name + 4, length, "%d", (bot_num + 1) % 3 );
+    name[4 + length] = '\0';
+    user_info * user = create_user_info(sock, LOCAL_IP, port, name); 
+    other_user1 = user;
+
+    return NULL;
 }
 
-int receive_helper(int from) {
-    
-}
+void * listen_handler(void * _bot_num) {
+    int bot_num = (int) _bot_num;
+    long int port = 5000 + bot_num;
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in address;
+    default_address_setup(&address, LOCAL_IP, port);
+    bind(sock, (struct sockaddr *) & address, sizeof(address));
+    listen(sock, 5);
 
-int connect_handler(int bot_num) {
-    if (num == 1) {
-        int socket2 = socket(AF_INET, SOCK_STREAM, 0);
-        struct sockaddr_in address2;
-        default_address_setup(&address2, LOCAL_IP, PORT2);
-        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
-        if (status2 == -1) {
-            return -1;    
-        }
-        int socket3 = socket(AF_INET, SOCK_STREAM, 0);
-        struct sockaddr_in address3;
-        default_address_setup(&address3, LOCAL_IP, PORT3);
-        int status3 = connect(socket3, (struct sockaddr *) & server_address, sizeof(address3));
-        if (status3 == -1) {
-            return -1;    
-        }
-        int socket4 = socket(AF_INET, SOCK_STREAM, 0);
-        struct sockaddr_in address4;
-        default_address_setup(&address4, LOCAL_IP, PORT4);
-        int status4 = connect(socket4, (struct sockaddr *) & server_address, sizeof(address4));
-        if (status4 == -1) {
-            return -1;     
-        }
-        else {
-            
-        }
-    }
-    else if (num == 2) {
-        int socket3 = socket(AF_INET, SOCK_STREAM, 0);
-        int socket4 = socket(AF_INET, SOCK_STREAM, 0);
-        struct sockaddr_in address3;
-        struct sockaddr_in address4;
-        default_address_setup(&address2, LOCAL_IP, PORT2);
-        default_address_setup(&address3, LOCAL_IP, PORT3);
-        default_address_setup(&address4, LOCAL_IP, PORT4);
-        int status2 = connect(socket2, (struct sockaddr *) & server_address, sizeof(address2));
-        int status3 = connect(socket3, (struct sockaddr *) & server_address, sizeof(address3));
-        int status4 = connect(socket4, (struct sockaddr *) & server_address, sizeof(address4));
-        if (status2 == -1 || status3 == -1 || status4 == -1) {
-            return -1;     
-        }
-        
-    }
-    else if (num == 3) {
-        
-    }
-    else if (num == 4) {
-        
-    }
-    else {
-        puts("Incorrect argument! Make sure the number passed in is between 1 and 4");
-        exit(1);
-    }
-    return 0;
-}
-*/
-int connect_to_others(bot_num) {
-    return 0;    
-}
+    int other_sock;
+    //second para will be filled with the address
+    //third is the size
+    other_sock = accept(sock, NULL, NULL);
 
+    char name[20];
+    memcpy(name, "Bot ", 4);
+    int length = snprintf( NULL, 0, "%d", (bot_num + 2) % 3 );
+    snprintf( name + 4, length, "%d", (bot_num + 2) % 3 );
+    name[4 + length] = '\0';
+    int other_port = 5000 + (bot_num + 2) % 3;
+    user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, name); 
+    other_user2 = user;
+    return NULL; 
+}

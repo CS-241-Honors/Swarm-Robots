@@ -39,7 +39,10 @@ int main(int argc, char ** argv) {
         printf("correct usage: %s\n", "number");
         return -1;
     }
-    (void) this_user_name;
+    memset(this_user_name, 0, MAX_NAME_LENGTH + 1);
+    memcpy(this_user_name, "Bot ", 4);
+    memcpy(this_user_name + 4, argv[1], strlen(argv[1]));
+    puts(this_user_name);
     /*
     if (set_name(this_user_name) == -1) {
         puts("Failed to create the name");
@@ -186,6 +189,7 @@ void * connect_handler(void * _bot_num) {
     (void) status; 
 
     user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
+    insert_user_info(&all_other_users, user);
 
     other_user1 = user;
 
@@ -219,6 +223,7 @@ void * listen_handler(void * _bot_num) {
     other_sock = accept(sock, NULL, NULL);
     printf("%s successfully listens\n", (char *) _bot_num);
     user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
+    insert_user_info(&all_other_users, user);
     other_user2 = user;
     return NULL; 
 }

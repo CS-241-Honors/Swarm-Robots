@@ -39,17 +39,20 @@ int main(int argc, char ** argv) {
         printf("correct usage: %s\n", "number");
         return -1;
     }
+    (void) this_user_name;
+    /*
     if (set_name(this_user_name) == -1) {
         puts("Failed to create the name");
         return -1;
     }
+    */
     pthread_rwlock_init(&rwlock, NULL);
     signal(SIGINT, SIGINT_handler);
     //-------------------------------------------------
     pthread_t connect_thread;
     pthread_t listen_thread;
-    if (pthread_create(&connect_thread, NULL, connect_handler, (void*) argv[0]) ||
-        pthread_create(&listen_thread, NULL, listen_handler, (void *) argv[0])) {
+    if (pthread_create(&connect_thread, NULL, connect_handler, (void*) argv[1]) ||
+        pthread_create(&listen_thread, NULL, listen_handler, (void *) argv[1])) {
         puts("Failed to connect");
         return -1;    
     }
@@ -58,6 +61,7 @@ int main(int argc, char ** argv) {
     pthread_join(listen_thread, &dummy);
     puts("Successfully connected");
     //-------------------------------------------------
+    while(1) {}
     pthread_t recv_thread1;
     pthread_t recv_thread2;
     pthread_t send_thread;
@@ -164,9 +168,15 @@ void default_address_setup(struct sockaddr_in * address, char * ip, long int por
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * connect_handler(void * _bot_num) {
     printf("connect_handler, 165:  %s\n", (char *) _bot_num);
+    _bot_num = (char *) _bot_num;
     int bot_num = 0;
     sscanf((char *) _bot_num, "%d", &bot_num);
     int other_bot_num = (bot_num + 1) % 3;
+    char other_name[10];
+    memset(other_name, 0, 10);
+    memcpy(other_name, "Bot ", 4);
+    sprintf(other_name + 4, "%d", other_bot_num);
+
     long int other_port = 5000 + other_bot_num; //hardcoded
 
     int other_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -175,11 +185,6 @@ void * connect_handler(void * _bot_num) {
     int status = connect(other_sock, (struct sockaddr *) & address, sizeof(address));
     (void) status; 
 
-    char other_name[10];
-
-    memset(other_name, 0, 10);
-    memcpy(other_name, "Bot ", 4);
-    sprintf(other_name + 4, "%d", other_bot_num);
     user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
 
     other_user1 = user;
@@ -188,9 +193,20 @@ void * connect_handler(void * _bot_num) {
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * listen_handler(void * _bot_num) {
+    _bot_num = (char *) _bot_num;
     int bot_num = 0;
     sscanf((char *) _bot_num, "%d", &bot_num);
+    int other_bot_num = (bot_num + 2) % 3;
+    char other_name[10];
+    memset(other_name, 0, 10);
+    memcpy(other_name, "Bot ", 4);
+    sprintf(other_name + 4, "%d", other_bot_num);
+    fprintf(stderr, "curr_bot_num: %s\n", _bot_num); 
+    fprintf(stderr, "other_bot_num: %s\n", other_name); 
+
     long int port = 5000 + bot_num;
+    int other_port = 5000 + (bot_num + 2) % 3;
+
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
     default_address_setup(&address, LOCAL_IP, port);
@@ -201,13 +217,7 @@ void * listen_handler(void * _bot_num) {
     //second para will be filled with the address
     //third is the size
     other_sock = accept(sock, NULL, NULL);
-    int other_bot_num = (bot_num + 2) % 3;
-    int other_port = 5000 + (bot_num + 2) % 3;
-    char other_name[10];
-
-    memset(other_name, 0, 10);
-    memcpy(other_name, "Bot ", 4);
-    sprintf(other_name + 4, "%d", other_bot_num);
+    printf("%s successfully listens\n", (char *) _bot_num);
     user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
     other_user2 = user;
     return NULL; 

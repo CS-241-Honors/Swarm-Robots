@@ -53,6 +53,10 @@ int main(int argc, char ** argv) {
         puts("Failed to connect");
         return -1;    
     }
+    void * dummy = NULL;
+    pthread_join(connect_thread, &dummy);
+    pthread_join(listen_thread, &dummy);
+    puts("Successfully connected");
     //-------------------------------------------------
     pthread_t recv_thread1;
     pthread_t recv_thread2;
@@ -63,7 +67,6 @@ int main(int argc, char ** argv) {
         fprintf(stderr, "Failed to create threads.\n"); 
         return -1;
     }
-    void * dummy = NULL;
     pthread_join(recv_thread1, &dummy);
     pthread_join(recv_thread2, &dummy);
     pthread_join(send_thread, &dummy);
@@ -158,27 +161,35 @@ void default_address_setup(struct sockaddr_in * address, char * ip, long int por
     address->sin_addr.s_addr = inet_addr(ip);
 }
 
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * connect_handler(void * _bot_num) {
-    int bot_num = (int) _bot_num;
-    long int port = 5000 + (bot_num + 1) % 3; //hardcoded
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    printf("connect_handler, 165:  %s\n", (char *) _bot_num);
+    int bot_num = 0;
+    sscanf((char *) _bot_num, "%d", &bot_num);
+    int other_bot_num = (bot_num + 1) % 3;
+    long int other_port = 5000 + other_bot_num; //hardcoded
+
+    int other_sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
-    default_address_setup(&address, LOCAL_IP, port);
-    int status = connect(sock, (struct sockaddr *) & address, sizeof(address));
+    default_address_setup(&address, LOCAL_IP, other_port);
+    int status = connect(other_sock, (struct sockaddr *) & address, sizeof(address));
     (void) status; 
-    char name[20];
-    memcpy(name, "Bot ", 4);
-    int length = snprintf( NULL, 0, "%d", (bot_num + 1) % 3 );
-    snprintf( name + 4, length, "%d", (bot_num + 1) % 3 );
-    name[4 + length] = '\0';
-    user_info * user = create_user_info(sock, LOCAL_IP, port, name); 
+
+    char other_name[10];
+
+    memset(other_name, 0, 10);
+    memcpy(other_name, "Bot ", 4);
+    sprintf(other_name + 4, "%d", other_bot_num);
+    user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
+
     other_user1 = user;
 
     return NULL;
 }
-
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * listen_handler(void * _bot_num) {
-    int bot_num = (int) _bot_num;
+    int bot_num = 0;
+    sscanf((char *) _bot_num, "%d", &bot_num);
     long int port = 5000 + bot_num;
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
@@ -190,14 +201,14 @@ void * listen_handler(void * _bot_num) {
     //second para will be filled with the address
     //third is the size
     other_sock = accept(sock, NULL, NULL);
-
-    char name[20];
-    memcpy(name, "Bot ", 4);
-    int length = snprintf( NULL, 0, "%d", (bot_num + 2) % 3 );
-    snprintf( name + 4, length, "%d", (bot_num + 2) % 3 );
-    name[4 + length] = '\0';
+    int other_bot_num = (bot_num + 2) % 3;
     int other_port = 5000 + (bot_num + 2) % 3;
-    user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, name); 
+    char other_name[10];
+
+    memset(other_name, 0, 10);
+    memcpy(other_name, "Bot ", 4);
+    sprintf(other_name + 4, "%d", other_bot_num);
+    user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
     other_user2 = user;
     return NULL; 
 }

@@ -170,7 +170,7 @@ void default_address_setup(struct sockaddr_in * address, char * ip, long int por
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 void * connect_handler(void * _bot_num) {
-    printf("connect_handler, 165:  %s\n", (char *) _bot_num);
+//    printf("connect_handler, 165:  %s\n", (char *) _bot_num);
     _bot_num = (char *) _bot_num;
     int bot_num = 0;
     sscanf((char *) _bot_num, "%d", &bot_num);
@@ -185,7 +185,13 @@ void * connect_handler(void * _bot_num) {
     int other_sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
     default_address_setup(&address, LOCAL_IP, other_port);
-    int status = connect(other_sock, (struct sockaddr *) & address, sizeof(address));
+    int status = 1;
+    while (status != 0) {
+        status = connect(other_sock, (struct sockaddr *) & address, sizeof(address));
+        sleep(2);
+        printf("%d\n", status);
+        
+    }
     (void) status; 
 
     user_info * user = create_user_info(other_sock, LOCAL_IP, other_port, other_name); 
@@ -205,17 +211,24 @@ void * listen_handler(void * _bot_num) {
     memset(other_name, 0, 10);
     memcpy(other_name, "Bot ", 4);
     sprintf(other_name + 4, "%d", other_bot_num);
-    fprintf(stderr, "curr_bot_num: %s\n", _bot_num); 
-    fprintf(stderr, "other_bot_num: %s\n", other_name); 
+    fprintf(stderr, "listen curr_bot_num: %s\n", _bot_num); 
+    fprintf(stderr, "listen other_bot_num: %s\n", other_name); 
 
     long int port = 5000 + bot_num;
-    int other_port = 5000 + (bot_num + 2) % 3;
+    int other_port = 5001 + (bot_num + 2) % 3;
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address;
     default_address_setup(&address, LOCAL_IP, port);
+    int optval = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
     bind(sock, (struct sockaddr *) & address, sizeof(address));
-    listen(sock, 5);
+    int status = 1;
+    //while (status != 0) {
+        status = listen(sock, 5);
+        printf("listen status: %d\n", status);
+        //sleep(2);
+    //}
 
     int other_sock;
     //second para will be filled with the address

@@ -22,9 +22,11 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 
+//--------------------------------------------------------------
 
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
+
 
 
 typedef struct message{
@@ -62,7 +64,7 @@ static dictionary * table; // global dictionary for our routing table
  */
 static int messages_sent; 
 
-
+//--------------------------------------------------------------
 
 int get_fd_from_table(char key){
 
@@ -73,6 +75,7 @@ int get_fd_from_table(char key){
 
 }
 
+//--------------------------------------------------------------
 
 /**
  * TODO: implement the return values
@@ -107,7 +110,8 @@ int send_message(char to, int type, int subtype){
 }
 
 
-
+//hi
+//--------------------------------------------------------------
 
 int main(int argc, char **argv) {
     // Good luck!
@@ -136,7 +140,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-
+//--------------------------------------------------------------
 
 
 

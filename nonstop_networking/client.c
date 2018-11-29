@@ -18,141 +18,53 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <pthread.h>
 //--------------------------------------------------------------
-static int sock_fd;
+#define PORT1 "5000"
+#define PORT2 "5001"
+#define PORT3 "5002"
+#define PORT4 "5003"
+#define LOCAL_IP "127.0.0.1"
 //--------------------------------------------------------------
-char **parse_args(int argc, char **argv);
-verb check_args(char **args);
-int connect_to_server(char * host, char * port);
+void print_usage();
+void SIGINT_handler();
+void SIGPIPE_handler();
 
-char * create_client_msg(verb request, char ** args, size_t * out_len);
-size_t get_msg_size();
-char * get_response();
-char * get_error_msg();
-
-void SIGPIPE_handler(int signum) {
-    (void) signum;
-    print_connection_closed();
-    exit(1);
-}
-void write_to_server(verb request, char ** args);
-void read_from_server(verb request, char ** args);
-
-void rw_big_file(int from, int to, ssize_t file_size);
-//-------------------------------------------------------------
-int main(int argc, char **argv) {
-    // process and validate arguments
-    char ** args = parse_args(argc, argv);
-    verb request = check_args(args);
-    // connect
-    sock_fd = connect_to_server(args[0], args[1]);
-    // write
-    signal(SIGPIPE, SIGPIPE_handler);
-    write_to_server(request, args);
-    shutdown(sock_fd, SHUT_WR);
-    // read 
-    read_from_server(request, args);
-    // clean up
-    close(sock_fd);
-    free(args);
-}
-
+int connect_handler_helper(char * host, char * port);
+void * connect_handler(void * dummy);
+void * listen_handler(void * dummy);
 //--------------------------------------------------------------
-// DONE
-/**
- * Given commandline argc and argv, parses argv.
- *
- * argc argc from main()
- * argv argv from main()
- *
- * Returns char* array in form of {host, port, method, remote, local, NULL}
- * where `method` is ALL CAPS
- */
-char **parse_args(int argc, char **argv) {
-    if (argc < 3) {
-        return NULL;
-    }
+int main(int argc, char ** argv) {
+    if (argc != 2) {
+        print_usage();    
+    } 
+	signal(SIGINT, SIGINT_handler);
+	signal(SIGPIPE, SIGPIPE_handler);	
+	//-----	
+    pthread_t connect_thread;
+    pthread_t listen_thread;
 
-    char *host = strtok(argv[1], ":");
-    char *port = strtok(NULL, ":");
-    if (port == NULL) {
-        return NULL;
+	if (pthread_create(&connect_thread, NULL, connect_handler, (void*) argv[1]) ||
+        pthread_create(&listen_thread, NULL, listen_handler, (void *) argv[1])) {
+        fprintf(stderr, "Bot%s fails to join the network.\n", argv[1]);
+		exit(1);
     }
-
-    char **args = calloc(1, 6 * sizeof(char *));
-    args[0] = host;
-    args[1] = port;
-    args[2] = argv[2];
-    char *temp = args[2];
-    while (*temp) {
-        *temp = toupper((unsigned char)*temp);
-        temp++;
-    }
-    if (argc > 3) {
-        args[3] = argv[3];
-    }
-    if (argc > 4) {
-        args[4] = argv[4];
-    }
-
-    return args;
+    void * dummy = NULL;
+    pthread_join(connect_thread, &dummy);
+    pthread_join(listen_thread, &dummy);
+	fprintf(stderr, "Bot%s successfully joins the network.\n", argv[1]);
+	//-----	
+    return 0;    
 }
 
 //--------------------------------------------------------------
-// DONE
-/**
- * Validates args to program.  If `args` are not valid, help information for the
- * program is printed.
- *
- * args     arguments to parse
- *
- * Returns a verb which corresponds to the request method
- */
-verb check_args(char **args) {
-    if (args == NULL) {
-        print_client_usage();
-        exit(1);
-    }
-
-    char *command = args[2];
-
-    if (strcmp(command, "LIST") == 0) {
-        return LIST;
-    }
-
-    if (strcmp(command, "GET") == 0) {
-        if (args[3] != NULL && args[4] != NULL) {
-            return GET;
-        }
-        print_client_help();
-        exit(1);
-    }
-
-    if (strcmp(command, "DELETE") == 0) {
-        if (args[3] != NULL) {
-            return DELETE;
-        }
-        print_client_help();
-        exit(1);
-    }
-
-    if (strcmp(command, "PUT") == 0) {
-        if (args[3] == NULL || args[4] == NULL) {
-            print_client_help();
-            exit(1);
-        }
-        return PUT;
-    }
-
-    // Not a valid Method
-    print_client_help();
-    exit(1);
+void print_usage() {
+    fprintf(stderr, "./client bot_number\n");    
 }
 
 //--------------------------------------------------------------
-// DONE
-int connect_to_server(char * host, char * port) {
-    struct addrinfo hints, *result;
+int connect_handler_helper(char * host, char * port) {
+	struct addrinfo hints, *result;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -179,211 +91,42 @@ int connect_to_server(char * host, char * port) {
 }
 
 //--------------------------------------------------------------
-// DONE
-char * get_response() {
-    // 6 == strlen("ERROR") + 1
-    char * rv = calloc(1, 6);
-    char next[2];
-    next[1] = '\0';
-    if (read_all_from_fd(sock_fd, rv, 2) != 2) {
-        print_invalid_response();
-        exit(1);
+void * connect_handler(void * _bot_num) {
+    char * bot_num = (char *) _bot_num;
+    char * port1, * port2;
+    switch (bot_num[0]) {
+        case '1':
+            port1 = PORT3;
+            port2 = PORT2;
+        case '2':
+            port1 = PORT1;
+            port2 = PORT4;
+        case '3':
+            port1 = PORT4;
+            port2 = PORT1;
+        case '4':
+            port1 = PORT2;
+            port2 = PORT3;
     }
-    if (!strcmp(rv, "OK")) {
-        if (read_all_from_fd(sock_fd, next, 1) != 1 ||
-            next[0] != '\n') {
-            print_invalid_response();
-            exit(1);
-        }
-        return rv;
-    }
-    if (read_all_from_fd(sock_fd, rv + 2, 3) != 3 ||
-        strcmp(rv, "ERROR") ||
-        read_all_from_fd(sock_fd, next, 1) != 1 ||
-        next[0] != '\n') {
-        print_invalid_response();
-        exit(1);
-    }
-    return rv;
+	int sock_fd1 = connect_handler_helper(LOCAL_IP, port1);
+	int sock_fd2 = connect_handler_helper(LOCAL_IP, port2);
+	(void) sock_fd1;
+	(void) sock_fd2;
+	return NULL;
 }
 
 //--------------------------------------------------------------
-// DONE
-char * get_error_msg() {
-    char * error_msg = calloc(1, 1024);
-    read_all_from_fd(sock_fd, error_msg, 1024);
-    for (size_t i = 0; i < 1024; i++) {
-        if (error_msg[i] == '\n') {
-            error_msg[i] = '\0';
-            return error_msg;
-        }
-    }
-    print_invalid_response();
-    exit(1);
+void * listen_handler(void * dummy) {
+    return NULL;    
 }
 
 //--------------------------------------------------------------
-// DONE
-size_t get_msg_size() {
-    size_t size;
-    if ( 0 == read_all_from_fd(sock_fd, (char *) &size, sizeof(size_t)) ) {
-        print_invalid_response();
-    }
-    return size;
+void SIGINT_handler() {
+    
 }
 
 //--------------------------------------------------------------
-// IMPORTANT: For PUT, return value includes everything except the raw bytes of the file
-// args: {host, port, method, remote, local, NULL}
-char * create_client_msg(verb request, char ** args, size_t * out_len) {
-    char * out_msg = NULL;
-
-    if (request == GET) {
-        size_t file_len = strlen(args[3]);
-        *out_len = 4 + file_len + 1;
-        out_msg = calloc(1, *out_len);
-        memcpy(out_msg, "GET ", 4);
-        memcpy(out_msg + 4, args[3], file_len);
-        memcpy(out_msg + 4 + file_len, "\n", 1);
-    }
-    else if (request == DELETE) {
-        size_t file_len = strlen(args[3]);
-        *out_len = 7 + file_len + 1;
-        out_msg = calloc(1, *out_len);
-        memcpy(out_msg, "DELETE ", 7);
-        memcpy(out_msg + 7, args[3], file_len);
-        memcpy(out_msg + 7 + file_len, "\n", 1);
-    }
-    else if (request == LIST) {
-        *out_len = 5;
-        out_msg = calloc(1, *out_len);
-        memcpy(out_msg, "LIST\n", *out_len);
-    }
-    else if (request == PUT) {
-        size_t name_len = strlen(args[3]);
-        *out_len = 4 + name_len + 1 + sizeof(size_t);
-        out_msg = calloc(1, *out_len);
-        memcpy(out_msg, "PUT ", 4);
-        memcpy(out_msg + 4, args[3], name_len);
-        memcpy(out_msg + 4 + name_len, "\n", 1);
-
-        struct stat s;
-        if (stat(args[4], &s) == -1) {
-            fprintf(stderr, "client: the file does not exit.\n");
-            exit(1);
-        }
-        size_t file_size = s.st_size;
-        memcpy(out_msg + 4 + name_len + 1, (char *) &file_size, sizeof(size_t));
-    }
-    return out_msg;
+void SIGPIPE_handler() {
+    
 }
 
-//--------------------------------------------------------------
-void write_to_server(verb request, char ** args) {
-    // creat the message to send
-    size_t out_len;
-    char * out_msg = create_client_msg(request, args, &out_len);
-
-    ssize_t bytes_written = write_all_to_fd(sock_fd, out_msg, out_len);
-    if (bytes_written == 0) {
-        print_connection_closed();
-        exit(1);
-    }
-    free(out_msg); out_msg = NULL;
-    if (request == PUT) {
-        int local_fd = open(args[4], O_RDONLY);
-        struct stat s;
-        if (fstat(local_fd, &s) == -1) {
-            fprintf(stderr, "fstat failed\n");
-            exit(1);
-        }
-        rw_big_file(local_fd, sock_fd, s.st_size);
-        close(local_fd);
-    }
-}
-
-//--------------------------------------------------------------
-// DONE
-void read_from_server(verb request, char ** args) {
-    char * response = get_response();
-    if (!strcmp(response, "ERROR")) {
-        char * error_msg = get_error_msg();
-        print_error_message(error_msg);
-        free(error_msg);
-    }
-    else if (!strcmp(response, "OK") && request == LIST) {
-        size_t msg_size = get_msg_size();
-        if (msg_size == 0) {
-            free(response); response = NULL;
-            return;
-        }
-        if (msg_size > 1024) {
-            print_invalid_response();
-            exit(1);
-        }
-        char * in_msg = malloc(msg_size);
-        char extra[0];
-        if (read_all_from_fd(sock_fd, in_msg, msg_size) == 0) {
-            print_too_little_data();
-        }
-        else if (read_all_from_fd(sock_fd, extra, 1) != 0) {
-            print_received_too_much_data();
-        }
-        else {
-            write_all_to_fd(1, in_msg, msg_size);
-        }
-        free(in_msg); in_msg = NULL;
-    }
-    else if (!strcmp(response, "OK") && request == GET) {
-        size_t msg_size = get_msg_size();
-        if (msg_size == 0) {
-            print_invalid_response();
-            exit(1);
-        }
-        mode_t mode = S_IRWXU | S_IRWXG | S_IRWXO;
-        int local_fd = open(args[4], O_CREAT | O_TRUNC | O_RDWR, mode);
-        rw_big_file(sock_fd, local_fd, msg_size);
-        close(local_fd);
-    }
-    else {
-        print_success();    
-    }
-    free(response); response = NULL;
-}
-
-//--------------------------------------------------------------
-// DONE
-void rw_big_file(int from, int to, ssize_t file_size) {
-    struct stat s;
-    if (fstat(to, &s) == -1) {
-        fprintf(stderr, "fstat failed\n");
-        exit(1);
-    }
-
-    char * buf = malloc(s.st_blksize);
-    ssize_t written = 0;
-    while (written < file_size) {
-        size_t read_size;
-        if (file_size - written < s.st_blksize) {
-            read_size = file_size % s.st_blksize;
-        }
-        else {
-            read_size = s.st_blksize;    
-        }
-        if (read_all_from_fd(from, buf, read_size) == 0) {
-            print_too_little_data();
-            free(buf); 
-            return;
-        } 
-        write_all_to_fd(to, buf, read_size);
-        written += read_size;
-    }
-
-    if (from == sock_fd) {
-        char extra[0];
-        if (read_all_from_fd(sock_fd, extra, 1) != 0) {
-            print_received_too_much_data();
-        }
-    }
-    free(buf); buf = NULL;
-}

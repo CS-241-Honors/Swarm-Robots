@@ -28,29 +28,32 @@
 #define PORT4 "5003"
 #define LOCAL_IP "127.0.0.1"
 #define NEIGHBOR_NUM 2
+#define TOTAL_BOT_NUM 4
 
 typedef enum { 
     QUERY,
     RESPONSE,
     MOVE,
-    DISCONNECT;
+    DISCONNECT
 } verb;
 
 typedef struct message{
     int msg_id;
-    char * from;
-    char * to;
     verb request;
+    char query_name;
+    char from;
+    char to;
     int direction;
     int distance;
 } message; 
 
 //--------------------------------------------------------------
 // Global Variables
+static char all_bot_names[TOTAL_BOT_NUM] = {'A', 'B', 'C', 'D'};
 static dictionary * table;
 static unsigned long msg_id;
 static char * bot_name;
-static char ** other_bot_names;
+static char ** neighbor_names;
 
 //--------------------------------------------------------------
 // Function headers
@@ -62,6 +65,7 @@ void SIGPIPE_handler();
 int connect_handler_helper(char * host, char * port);
 void * connect_handler(void * dummy);
 void * listen_handler(void * dummy);
+void do_query(char * name);
 
 void send_name(int to_fd, char * name);
 char * read_name(int from_fd);
@@ -70,9 +74,11 @@ ssize_t write_all_to_fd(int fd, const char *buffer, size_t count);
 char * msg_before_next(char * msg);
 
 void clear_all_table_elems();
-void clear_other_bot_names(char ** _other_bot_names);
+void clear_neighbor_names(char ** _neighbor_names);
 //--------------------------------------------------------------
 int main(int argc, char ** argv) {
+    (void) all_bot_names;
+    fprintf(stderr, "%zu\n", sizeof(verb));
     if (argc != 2) {
         print_usage();    
 		exit(1);
@@ -84,7 +90,7 @@ int main(int argc, char ** argv) {
     table = dictionary_create(shallow_hash_function, shallow_compare, NULL, NULL, NULL, NULL);
     msg_id = 0;
     bot_name = argv[1];
-    other_bot_names = calloc(sizeof(char *), 3);
+    neighbor_names = calloc(sizeof(char *), NEIGHBOR_NUM);
 	//-----	
     // Connect
     pthread_t connect_thread;
@@ -100,10 +106,13 @@ int main(int argc, char ** argv) {
     pthread_join(listen_thread, &dummy);
 	fprintf(stderr, "Bot%s successfully joins the network.\n", argv[1]);
 	//-----	
+    // fill out the routing table
+    do_query(argv[1]);
+	//-----	
     // clean up
     clear_all_table_elems();
     dictionary_destroy(table);
-    clear_other_bot_names(other_bot_names);
+    clear_neighbor_names(neighbor_names);
     return 0;    
 }
 
@@ -220,8 +229,8 @@ void * listen_handler(void * _bot_num) {
     while (processed < NEIGHBOR_NUM) {
         size_t client_fd = accept(sock_fd, NULL, NULL);
         char * client_name = read_name(client_fd);
-        dictionary_set(table, (void *) client_name, (void *) client_fd);
-        other_bot_names[processed] = client_name;
+        dictionary_set(table, (void *) (size_t) client_name[0], (void *) client_fd);
+        neighbor_names[processed] = client_name;
         fprintf(stderr, "Bot%s successfully connects to Bot%s\n", bot_name, client_name);
         processed++;
     }
@@ -331,17 +340,29 @@ char * read_name(int from_fd) {
 //-------------------------------------------------------------
 void clear_all_table_elems() {
     for (int i=0; i < NEIGHBOR_NUM; i++) {
-        if (other_bot_names[i] != NULL &&
-            dictionary_contains(table, other_bot_names[i])) {
-            dictionary_remove(table, other_bot_names[i]);
+        if (neighbor_names[i] != NULL &&
+            dictionary_contains(table, neighbor_names[i])) {
+            dictionary_remove(table, neighbor_names[i]);
         }    
     }        
 }
 
 //-------------------------------------------------------------
-void clear_other_bot_names(char ** _other_bot_names) {
+void clear_neighbor_names(char ** _neighbor_names) {
     for (int i=0; i < NEIGHBOR_NUM; i++) {
-        free(_other_bot_names[i]);    
+        free(_neighbor_names[i]);    
     }    
-    free(_other_bot_names);
+    free(_neighbor_names);
 }
+
+//-------------------------------------------------------------
+void do_query(char * curr_bot) {
+    for (int i=0; i < TOTAL_BOT_NUM; i++) {
+        if (all_bot_names[i] != curr_bot && 
+            !dictionary_contains(table, (void *) all_bot_names[i])) {
+            char * msg = calloc(sizeof(message), 1);
+            msg->msg_id = 
+        }
+    }
+}
+    int msg_id;

@@ -357,6 +357,7 @@ void clear_neighbor_names(char ** _neighbor_names) {
 
 //-------------------------------------------------------------
 void do_query(char * curr_bot) {
+    /*
     for (int i=0; i < TOTAL_BOT_NUM; i++) {
         if (all_bot_names[i] != curr_bot && 
             !dictionary_contains(table, (void *) all_bot_names[i])) {
@@ -364,5 +365,5 @@ void do_query(char * curr_bot) {
             msg->msg_id = 
         }
     }
+    */
 }
-    int msg_id;

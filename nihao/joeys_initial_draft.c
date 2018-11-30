@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "dictionary.h"
+#include "vector.h"
 #include "format.h"
 #include <ctype.h>
 #include <stdbool.h>
@@ -12,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <errno.h>
 #include <netdb.h>
@@ -33,8 +35,9 @@ typedef struct message{
     int id;
     char to;
     char from;
-    int type;
-    int subtype;
+    int type; // 1, que
+    int subtype; // 1, 2, 3, 4,
+    int distance; 
     char request_name;
 } message; 
 
@@ -57,6 +60,7 @@ static char my_name; // will be set by passing in argument into command line
 
 
 static dictionary * table; // global dictionary for our routing table
+static vector * neighbors;
 
 /**
  * counter for all the messages we've sent
@@ -64,6 +68,9 @@ static dictionary * table; // global dictionary for our routing table
  * 
  */
 static int messages_sent; 
+
+static char population[4] = {'A', 'B', 'C', 'D'};
+static int population_size = sizeof(population);
 
 //--------------------------------------------------------------
 
@@ -77,6 +84,12 @@ int get_fd_from_table(char key){
 }
 
 //--------------------------------------------------------------
+
+
+void send_to_all_neighbors(void * package){
+    printf("TODO: send_to_all_neighbors\n");
+    return;
+}
 
 /**
  * TODO: implement the return values
@@ -107,18 +120,49 @@ int send_message(char to, int type, int subtype, char request_name){
     printf("package->subtype : %d\n", package->subtype);
     printf("package->request_name : %d\n", package->request_name);
 
+
+    // write(fd, package, sizeof(message));
+    if (to == 'Z'){
+        send_to_all_neighbors(package);
+    }
+
     return 0;
 
 }
 
 
-//hi
+void * query_thread(){
+
+    int counter = 0;
+    while(1){
+        char current_neighbor = population[counter%population_size];
+        if (!dictionary_contains(table, (void *)(size_t)current_neighbor)){
+            if (current_neighbor != my_name){
+                printf("NEED TO CONNECT TO : %c\n", current_neighbor);
+                // send_to_all_neighbors( do you guys know D?)
+                sleep(1);
+            }
+        }
+        counter++;
+    }
+
+
+
+    return NULL;
+}
 //--------------------------------------------------------------
 
 int main(int argc, char **argv) {
     // Good luck!
+    // (void)argc;
+    // (void)argv;
+    (void)population;
+
 
     table = dictionary_create(shallow_hash_function, shallow_compare, NULL, NULL, NULL, NULL);
+    neighbors = vector_create(char_copy_constructor,
+                      char_destructor,
+                      char_default_constructor);
 
     memmove(&my_name, argv[1], 1);
     printf("My name is : %c\n", my_name);
@@ -132,10 +176,17 @@ int main(int argc, char **argv) {
     dictionary_set(table, (void *) (size_t) my_char, (void *) B_meta);
 
 
-    send_message(my_char, 1, 1);
+    send_message(my_char, 1, 1, '\0');
 
 
-    // dictionary_destroy(table);
+    pthread_t query_thread_num;
+    pthread_create(&query_thread_num, NULL,
+                          query_thread, NULL);
+
+    pthread_exit(NULL);
+
+    dictionary_destroy(table);
+    vector_destroy(neighbors);
 
 
 
@@ -146,7 +197,26 @@ int main(int argc, char **argv) {
 
 
 
+// int message_interpreter(message * package){
+//     // int id;
+//     if(package->to == my){
 
+//     }
+//     char from;
+//     int type;
+//     int subtype;
+//     char request_name;
+
+
+
+
+
+
+
+
+
+
+// }
 
 
 

@@ -30,10 +30,10 @@
 #define NEIGHBOR_NUM 2
 
 typedef enum { 
-    MSG,
     QUERY,
-    DISCONNECT,
-    NAME
+    RESPONSE,
+    MOVE,
+    DISCONNECT;
 } verb;
 
 typedef struct message{
@@ -41,6 +41,8 @@ typedef struct message{
     char * from;
     char * to;
     verb request;
+    int direction;
+    int distance;
 } message; 
 
 //--------------------------------------------------------------
@@ -99,7 +101,6 @@ int main(int argc, char ** argv) {
 	fprintf(stderr, "Bot%s successfully joins the network.\n", argv[1]);
 	//-----	
     // clean up
-    fprintf(stderr, "%d, %d\n", (int) dictionary_contains(table, other_bot_names[1]), (int) dictionary_contains(table, other_bot_names[0]));
     clear_all_table_elems();
     dictionary_destroy(table);
     clear_other_bot_names(other_bot_names);

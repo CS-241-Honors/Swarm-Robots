@@ -4,6 +4,7 @@
 */
 //--------------------------------------------------------------
 #include "includes/dictionary.h"
+#include "includes/sstring.h"
 #include "format.h"
 #include <ctype.h>
 #include <stdbool.h>
@@ -20,6 +21,8 @@
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <assert.h>
+#include <wiringPi.h>
 //--------------------------------------------------------------
 // Definitions
 #define PORT1 "5000"
@@ -34,15 +37,16 @@ typedef enum {
     QUERY,
     RESPONSE,
     MOVE,
-    DISCONNECT
+    DISCONNECT,
+    UNKNOWN
 } verb;
 
 typedef struct message{
     int msg_id;
-    verb request;
-    char query_name;
     char from;
     char to;
+    verb request;
+    char query_bot;
     int direction;
     int distance;
 } message; 
@@ -51,10 +55,15 @@ typedef struct message{
 // Global Variables
 static char all_bot_names[TOTAL_BOT_NUM] = {'A', 'B', 'C', 'D'};
 static dictionary * table;
-static unsigned long msg_id;
 static char * bot_name;
 static char ** neighbor_names;
-
+static int msg_id;
+static pthread_mutex_t m;
+static int A_leds[4] = {2,   3,  4, 17};
+static int B_leds[4] = {27, 22, 10,  9};
+static int C_leds[4] = {11,  5,  6, 13};
+static int D_leds[4] = {12, 21, 20, 16};
+static bool running;
 //--------------------------------------------------------------
 // Function headers
 void print_usage();
@@ -65,7 +74,8 @@ void SIGPIPE_handler();
 int connect_handler_helper(char * host, char * port);
 void * connect_handler(void * dummy);
 void * listen_handler(void * dummy);
-void do_query(char * name);
+void do_query(char curr_bot);
+void send_query(char curr_bot, char query_bot);
 void print_dictionary(dictionary * table);
 
 void send_name(int to_fd, char * name);
@@ -76,6 +86,20 @@ char * msg_before_next(char * msg);
 
 void clear_all_table_elems();
 void clear_neighbor_names(char ** _neighbor_names);
+
+char * verb_to_string(verb v);
+verb string_to_verb(char * s);
+
+char * shell_getline();
+char ** shell_split_line(char * line);
+void free_argv(char *** argv);
+int count_argv(char ** argv);
+void * blink_handler(void * _name);
+
+int led_lookup(char curr_name, char other_name);
+void turn_light_on(char curr_name, char other_name);
+void turn_light_off(char curr_name, char other_name);
+void turn_all_lights_off(char name);
 //--------------------------------------------------------------
 int main(int argc, char ** argv) {
     (void) all_bot_names;
@@ -92,6 +116,15 @@ int main(int argc, char ** argv) {
     msg_id = 0;
     bot_name = argv[1];
     neighbor_names = calloc(sizeof(char *), NEIGHBOR_NUM);
+    pthread_mutex_init(&m, NULL);
+    running = 1; 
+	//-----	
+    // blink
+    pthread_t blink_thread;
+    if (pthread_create(&blink_thread, NULL, blink_handler, (void *) (size_t) argv[1][0])) {
+        perror("pthread_create");
+        exit(1);
+    }
 	//-----	
     // Connect
     pthread_t connect_thread;
@@ -109,12 +142,27 @@ int main(int argc, char ** argv) {
 	//-----	
     // fill out the routing table
     print_dictionary(table);
-    do_query(argv[1]);
+    do_query(argv[1][0]);
+	//-----	
+    // read message
+    while (1) {
+        char * curr_line = shell_getline();
+        if (curr_line == NULL) {
+            break;    
+        }
+		char ** line_argv = shell_split_line(curr_line);
+    	int line_argc = count_argv(line_argv);
+
+
+		free(curr_line); 
+    	free_argv(&line_argv);  line_argv = NULL;
+    }
 	//-----	
     // clean up
     clear_all_table_elems();
     dictionary_destroy(table);
     clear_neighbor_names(neighbor_names);
+    pthread_mutex_destroy(&m);
     return 0;    
 }
 
@@ -216,6 +264,7 @@ void * listen_handler(void * _bot_num) {
     int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     int optval = 1;
     setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+    dictionary_set(table, (void *) (size_t) bot_num[0], (void *) (size_t) sock_fd);
 
     if (bind(sock_fd, result->ai_addr, result->ai_addrlen) != 0) {
         perror(NULL); 
@@ -237,12 +286,22 @@ void * listen_handler(void * _bot_num) {
         processed++;
     }
     freeaddrinfo(result);
+    // keep accepting
+    while (running) {
+        size_t client_fd = accept(sock_fd, NULL, NULL);
+        char * client_name = read_name(client_fd);
+        dictionary_set(table, (void *) (size_t) client_name[0], (void *) client_fd);
+        fprintf(stderr, "Bot%s successfully connects to Bot%s\n", bot_name, client_name);
+    }
     return NULL;    
 }
 
 //--------------------------------------------------------------
 void SIGINT_handler() {
-    
+    // TODO:
+    // send message to its neighbors 
+    turn_all_lights_off(bot_name[0]);
+    fprintf(stdout, "Bot %c left the network.\n", bot_name[0]);
 }
 
 //--------------------------------------------------------------
@@ -358,15 +417,43 @@ void clear_neighbor_names(char ** _neighbor_names) {
 }
 
 //-------------------------------------------------------------
-void do_query(char * curr_bot) {
-    (void) curr_bot;
+void send_query(char curr_bot, char query_bot) {
+    pthread_mutex_lock(&m);
+    message * msg = (message *) calloc(sizeof(message), 1);
+    msg->msg_id = msg_id;
+    msg->from = curr_bot;
+    msg->request = QUERY;
+    msg->query_bot = query_bot;
     for (int i = 0; i < TOTAL_BOT_NUM; i++) {
-        if (all_bot_names[i] != curr_bot && 
-            !dictionary_contains(table, (void *) all_bot_names[i])) {
-            char * msg = calloc(sizeof(message), 1);
-            msg->msg_id = 
+        char this_bot = all_bot_names[i];
+        if (this_bot != curr_bot && 
+            dictionary_contains(table, (void *) (size_t) this_bot)) {
+            msg->to = this_bot;
+            int sock_fd = (int) dictionary_get(table, (void *) (size_t) this_bot);
+            write_all_to_fd(sock_fd, (char *) msg, sizeof(msg)); 
         }
     }
+    pthread_mutex_unlock(&m);
+}
+
+//-------------------------------------------------------------
+void do_query(char curr_bot) {
+    char query_names[TOTAL_BOT_NUM];
+    int query_num = 0;
+    for (int i = 0; i < TOTAL_BOT_NUM; i++) {
+        if (all_bot_names[i] != curr_bot && 
+            !dictionary_contains(table, (void *) (size_t) all_bot_names[i])) {
+            query_names[query_num++] = all_bot_names[i];
+        }
+    }
+    for (int i = 0; i < query_num; i++) {
+        send_query(curr_bot, query_names[i]);    
+    }
+}
+
+//-------------------------------------------------------------
+void read_msg(char curr_bot) {
+    
 }
 
 //-------------------------------------------------------------
@@ -380,3 +467,251 @@ void print_dictionary(dictionary * table) {
     vector_destroy(keys);
     vector_destroy(values);
 }
+
+//-------------------------------------------------------------
+char * verb_to_string(verb v) {
+    char * rv = NULL;
+    if (v == QUERY) {
+        rv = strdup("QUERY");  
+    }
+    else if (v == RESPONSE) {
+        rv = strdup("RESPONSE");    
+    }
+    else if (v == MOVE) {
+        rv = strdup("MOVE");    
+    }
+    else if (v == DISCONNECT) {
+        rv = strdup("DISCONNECT");    
+    }
+    assert(0);
+    return rv;
+}
+
+//-------------------------------------------------------------
+verb string_to_verb(char * s) {
+    if (!strcmp(s, "QUERY")) {
+        return QUERY;    
+    }    
+    if (!strcmp(s, "RESPONSE")) {
+        return RESPONSE;    
+    }
+    if (!strcmp(s, "MOVE")) {
+        return MOVE;    
+    }
+    if (!strcmp(s, "DISCONNECT")) {
+        return DISCONNECT;    
+    }
+    assert(0);
+    return UNKNOWN;
+}
+
+//-------------------------------------------------------------
+char * shell_getline() {
+    size_t capacity = 128;
+    char * line = (char *) malloc(capacity);
+    size_t size = 0;
+    int c;
+
+    if (line == NULL) {
+        return NULL;    
+    }
+    while (1) {
+        c = fgetc(stdin);
+        if (c == EOF) {
+            free(line); line = NULL;
+            return NULL;
+        }
+
+        if (size == capacity) {
+            capacity *= 2;
+            char * temp = realloc(line, capacity);
+            if (temp == NULL) {
+                free(line); line = NULL;
+                return NULL;    
+            }
+            line = temp; temp = NULL;
+        }
+
+        line[size++] = c;
+        if (c == '\n') {
+            line[size - 1] = '\0';
+            break;
+        }
+    }
+    return line;
+}
+
+//-------------------------------------------------------------
+void turn_all_lights_off(char name) {
+    int * leds;
+    if (bot_name[0] == 'A') {
+        leds = A_leds;
+    }
+    if (bot_name[0] == 'B') {
+        leds = B_leds;
+    }
+    if (bot_name[0] == 'C') {
+        leds = C_leds;
+    }
+    if (bot_name[0] == 'D') {
+        leds = D_leds;
+    }
+    for (size_t i = 0; i < TOTAL_BOT_NUM; i++) {
+        digitalWrite(leds[i], 0);    
+    }
+}
+
+//-------------------------------------------------------------
+void * blink_handler(void * _name) {
+    int LED;
+    char name = (char) (size_t) _name;
+    if (name == 'A') {
+        LED = 2;    
+    }
+    else if (name == 'B') {
+        LED = 22;
+    }
+    else if (name == 'C') {
+        LED = 6;    
+    }
+    else if (name == 'D') {
+        LED = 16;    
+    }
+    else {
+        assert(0 && "invalid name");    
+    }
+    
+    while (running) {
+        digitalWrite(LED, 1);
+        delay(100);
+        digitalWrite(LED, 0);
+        delay(100);
+    } 
+    return NULL;
+}
+
+//-------------------------------------------------------------
+int led_lookup(char curr_name, char other_name) {
+    int LED;
+    if (curr_name == 'A') {
+        if (other_name == 'B') {
+            LED = 3; 
+        }
+        else if (other_name == 'C') {
+            LED = 4;
+        }
+        else if (other_name == 'D') {
+            LED = 17;
+        }
+        else {
+            assert(0 && "other_name is invalid");     
+        }
+    } 
+    if (curr_name == 'B') {
+        if (other_name == 'A') {
+            LED = 27;
+        }
+        else if (other_name == 'C') {
+            LED = 10;
+        }
+        else if (other_name == 'D') {
+            LED = 9;
+        }
+        else {
+            assert(0 && "other_name is invalid");     
+        }
+    } 
+    if (curr_name == 'C') {
+        if (other_name == 'A') {
+            LED = 11;
+        }
+        else if (other_name == 'B') {
+            LED = 5;
+        }
+        else if (other_name == 'D') {
+            LED = 13;
+        }
+        else {
+            assert(0 && "other_name is invalid");     
+        }
+    } 
+    if (curr_name == 'D') {
+        if (other_name == 'A') {
+            LED = 12;
+        }
+        else if (other_name == 'B') {
+            LED = 21;
+        }
+        else if (other_name == 'C') {
+            LED = 20;
+        }
+        else {
+            assert(0 && "other_name is invalid");     
+        }
+    } 
+    return LED;
+}
+
+//-------------------------------------------------------------
+void turn_light_off(char curr_name, char other_name) {
+    int led = led_lookup(curr_name, other_name); 
+    digitalWrite(led, 0);
+}
+
+//-------------------------------------------------------------
+void turn_light_on(char curr_name, char other_name) {
+    int led = led_lookup(curr_name, other_name); 
+    digitalWrite(led, 1);
+}
+
+//-------------------------------------------------------------
+// Split the return value by space from shell_getline();it also removes all extra spaces
+char ** shell_split_line(char * line) {
+    sstring * s_line = cstr_to_sstring(line);
+    vector * vec = sstring_split(s_line, ' ');
+    size_t num_strings = vector_size(vec);
+    char ** rv = calloc(num_strings + 1, sizeof(char *));
+    size_t itr = 0;
+    size_t cpy_itr = 0;
+    for (; itr < num_strings; itr++) {
+        const char * string = vector_get(vec, itr);
+        if (!strcmp(string, " ") ||
+            !strcmp(string, "")  ||
+            !strcmp(string, "\t")) {
+            continue;    
+        }
+        rv[cpy_itr++] = strdup(string);
+    }
+
+    vector_destroy(vec);
+    sstring_destroy(s_line);  
+    return rv;
+}
+
+//-------------------------------------------------------------
+int count_argv(char ** argv) {
+    if (!argv) {
+        return 0;
+    }
+    int i=0;
+    while (argv[i]) {
+        i++;    
+    }
+    return i;
+}
+
+//----------------------------------------------------
+void free_argv(char *** argv) {
+    if (!argv || !(*argv)) {
+        return;
+    }
+    int i = 0;    
+    while ((*argv)[i]) {
+        free((*argv)[i]); (*argv)[i] = NULL;
+        i++;
+    }
+    free(*argv); *argv = NULL;
+}
+//-------------------------------------------------------------
+//-------------------------------------------------------------
+//-------------------------------------------------------------

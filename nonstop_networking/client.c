@@ -1,10 +1,9 @@
-/**
+/**   
 * Networking Lab
 * CS 241 - Fall 2018
 */
 //--------------------------------------------------------------
 #include "includes/dictionary.h"
-#include "includes/sstring.h"
 #include "format.h"
 #include <ctype.h>
 #include <stdbool.h>
@@ -94,6 +93,7 @@ char * shell_getline();
 char ** shell_split_line(char * line);
 void free_argv(char *** argv);
 int count_argv(char ** argv);
+void print_argv(char ** argv);
 void * blink_handler(void * _name);
 
 int led_lookup(char curr_name, char other_name);
@@ -137,25 +137,37 @@ int main(int argc, char ** argv) {
     }
     void * dummy = NULL;
     pthread_join(connect_thread, &dummy);
-    pthread_join(listen_thread, &dummy);
 	fprintf(stderr, "Bot%s successfully joins the network.\n", argv[1]);
 	//-----	
     // fill out the routing table
     print_dictionary(table);
-    do_query(argv[1][0]);
+//    do_query(argv[1][0]);
 	//-----	
     // read message
     while (1) {
+		fprintf(stderr, "Reading command.\n");
         char * curr_line = shell_getline();
+        fprintf(stderr, "after shell_getline\n");
         if (curr_line == NULL) {
             break;    
         }
+        /*
 		char ** line_argv = shell_split_line(curr_line);
+        fprintf(stderr, "after shell_split_line");
     	int line_argc = count_argv(line_argv);
+        (void) line_argc;
 
 
+        for (int i = 0; i < line_argc; i++) {
+            fprintf(stderr, "%d: %s\n", i, argv[i]);
+        }
 		free(curr_line); 
+        puts("162");
+		print_argv(line_argv);
+        puts("164");
     	free_argv(&line_argv);  line_argv = NULL;
+        puts("166");
+        */
     }
 	//-----	
     // clean up
@@ -667,6 +679,7 @@ void turn_light_on(char curr_name, char other_name) {
 //-------------------------------------------------------------
 // Split the return value by space from shell_getline();it also removes all extra spaces
 char ** shell_split_line(char * line) {
+    /*
     sstring * s_line = cstr_to_sstring(line);
     vector * vec = sstring_split(s_line, ' ');
     size_t num_strings = vector_size(vec);
@@ -686,6 +699,8 @@ char ** shell_split_line(char * line) {
     vector_destroy(vec);
     sstring_destroy(s_line);  
     return rv;
+    */
+    return NULL;
 }
 
 //-------------------------------------------------------------
@@ -700,7 +715,7 @@ int count_argv(char ** argv) {
     return i;
 }
 
-//----------------------------------------------------
+//-------------------------------------------------------------
 void free_argv(char *** argv) {
     if (!argv || !(*argv)) {
         return;
@@ -712,6 +727,14 @@ void free_argv(char *** argv) {
     }
     free(*argv); *argv = NULL;
 }
+
 //-------------------------------------------------------------
+void print_argv(char ** argv) {
+    int i = 0;
+    while (argv[i]) {
+        fprintf(stderr, "%d: %s\n", i, argv[i]);
+        i++;
+    }
+}
 //-------------------------------------------------------------
 //-------------------------------------------------------------

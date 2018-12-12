@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wiringPi.h>
+
 
 #include <errno.h>
 #include <netdb.h>
@@ -40,7 +42,12 @@ static int population_size = 4;
 static char population[4] = {'A', 'B', 'C', 'D'};
 static int messages_sent; 
 
+static int * my_pins;
 
+static int pinsA[4] = {2, 3, 4, 17};
+static int pinsB[4] = {27, 22, 10, 9};
+static int pinsC[4] = {11, 5, 6, 13};
+static int pinsD[4] = {21, 20, 16, 12};
 //----------------------------------------------------------------------------------
 // Structures
 /**
@@ -71,6 +78,71 @@ enum {
     NO,
     YES
 };
+
+//----------------------------------------------------------------------------------
+
+int * get_pins(){
+    int * pins;
+    switch(my_name){
+       
+        case 'A':
+            
+            pins = pinsA;
+            break;
+        case 'B':
+            
+            pins = pinsB;
+            break;
+        case 'C':
+            
+            pins = pinsC;
+            break;
+        case 'D':
+            
+            pins = pinsD;
+            break;
+    }
+
+    return pins;
+
+
+}
+    
+
+//----------------------------------------------------------------------------------
+
+
+void turn_light_on(char neighbor_name){
+    int index;
+     switch(neighbor_name){
+
+        case 'A':
+            index = 0;
+            break;
+        case 'B':
+            index = 1;
+            break;
+        case 'C':
+            index = 2;
+            break;
+        case 'D':
+            index = 3;
+            break;
+    }
+
+//     fprintf(stderr, "delay_len: %f\n", delay_len);
+    wiringPiSetupGpio ();
+    int LED = my_pins[index];
+    pinMode(LED, OUTPUT);
+
+    digitalWrite(LED, 1);
+    // delay(delay_len);
+    // digitalWrite(LED, 0);
+    // delay(delay_len);
+
+
+
+}
 
 //----------------------------------------------------------------------------------
 
@@ -180,6 +252,8 @@ void message_interpreter(char messenger_name, int messenger_fd, message * packag
             new_value->fd = messenger_fd;
 
             dictionary_set(table, (void *)(size_t)new_find, new_value);
+            turn_light_on(new_find);
+
         }else{
 
         }
@@ -256,6 +330,7 @@ void nnread(int new_neighbor_fd){
     if(!dictionary_contains(table, (void *)(size_t)new_neighbor_name)){
 
         dictionary_set(table, (void *)(size_t)new_neighbor_name, (void *)new_value);
+        turn_light_on(new_neighbor_name);
         printf("Robot %c is now added to my dictionary and has fd #%d\n", 
                                     new_neighbor_name, new_neighbor_fd);
 
@@ -507,6 +582,8 @@ int main(int argc, char * argv[]){
                       string_default_constructor);
 
     populate_seek_ports();
+
+    my_pins = get_pins();
 
     table = dictionary_create(pointer_hash_function, shallow_compare,
                               shallow_copy_constructor,

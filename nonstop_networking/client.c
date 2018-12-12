@@ -219,18 +219,26 @@ void * connect_handler(void * _bot_num) {
     char * port1, * port2;
     switch (bot_num[0]) {
         case 'A':
+            turn_light_on(bot_num[0], 'B');
+            turn_light_on(bot_num[0], 'C');
             port1 = PORT3;
             port2 = PORT2;
             break;
         case 'B':
+            turn_light_on(bot_num[0], 'A');
+            turn_light_on(bot_num[0], 'D');
             port1 = PORT1;
             port2 = PORT4;
             break;
         case 'C':
+            turn_light_on(bot_num[0], 'A');
+            turn_light_on(bot_num[0], 'C');
             port1 = PORT4;
             port2 = PORT1;
             break;
         case 'D':
+            turn_light_on(bot_num[0], 'B');
+            turn_light_on(bot_num[0], 'C');
             port1 = PORT2;
             port2 = PORT3;
             break;

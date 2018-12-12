@@ -66,6 +66,7 @@ int connect_handler_helper(char * host, char * port);
 void * connect_handler(void * dummy);
 void * listen_handler(void * dummy);
 void do_query(char * name);
+void print_dictionary(dictionary * table);
 
 void send_name(int to_fd, char * name);
 char * read_name(int from_fd);
@@ -107,6 +108,7 @@ int main(int argc, char ** argv) {
 	fprintf(stderr, "Bot%s successfully joins the network.\n", argv[1]);
 	//-----	
     // fill out the routing table
+    print_dictionary(table);
     do_query(argv[1]);
 	//-----	
     // clean up
@@ -357,13 +359,24 @@ void clear_neighbor_names(char ** _neighbor_names) {
 
 //-------------------------------------------------------------
 void do_query(char * curr_bot) {
-    /*
-    for (int i=0; i < TOTAL_BOT_NUM; i++) {
+    (void) curr_bot;
+    for (int i = 0; i < TOTAL_BOT_NUM; i++) {
         if (all_bot_names[i] != curr_bot && 
             !dictionary_contains(table, (void *) all_bot_names[i])) {
             char * msg = calloc(sizeof(message), 1);
             msg->msg_id = 
         }
     }
-    */
+}
+
+//-------------------------------------------------------------
+void print_dictionary(dictionary * table) {
+    vector * keys = dictionary_keys(table);
+    vector * values = dictionary_values(table);
+    size_t n = vector_size(keys);
+    for (size_t i = 0; i < n; i++) {
+        fprintf(stdout, "Key: %c; Value: %d\n", (char) vector_get(keys, i), (int) vector_get(values, i));
+    }
+    vector_destroy(keys);
+    vector_destroy(values);
 }

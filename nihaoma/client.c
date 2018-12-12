@@ -1,6 +1,6 @@
 #include "common.h"
 #include "dictionary.h"
-#include "format.h"
+// #include "format.h"
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -64,8 +64,12 @@ typedef struct message{
 enum { 
     QUERY,
     RESPONSE,
-    MOVE,
     DISCONNECT
+};
+
+enum { 
+    NO,
+    YES
 };
 
 //----------------------------------------------------------------------------------
@@ -120,13 +124,13 @@ int send_message(char to, int type, int subtype, char request_name){
     // (void)fd;
     // char tmp_buf[sizeof(message)];
 
-    printf("MESSAGE :\n");
-    printf("package->id : %d\n", package->id);
-    printf("package->to : %c\n", package->to);
-    printf("package->from : %c\n", package->from);
-    printf("package->type : %d\n", package->type);
-    printf("package->subtype : %d\n", package->subtype);
-    printf("package->request_name : %d\n", package->request_name);
+    // printf("MESSAGE :\n");
+    // printf("package->id : %d\n", package->id);
+    // printf("package->to : %c\n", package->to);
+    // printf("package->from : %c\n", package->from);
+    // printf("package->type : %d\n", package->type);
+    // printf("package->subtype : %d\n", package->subtype);
+    // printf("package->request_name : %d\n", package->request_name);
 
 
     // write(fd, package, sizeof(message));
@@ -137,7 +141,11 @@ int send_message(char to, int type, int subtype, char request_name){
         int curr_fd = curr_value->fd;
 
         printf("Sending a singular message to %c on fd #%d\n", to, curr_fd);
-        write(curr_fd, package, sizeof(message));
+        int write_err = write(curr_fd, package, sizeof(message));
+        if (write_err == -1){
+            perror("write() error");
+            return 0;    
+        }
     }
 
     return 0;
@@ -155,10 +163,26 @@ void message_interpreter(char messenger_name, int messenger_fd, message * packag
 
     if (package->type == QUERY){
         printf("We have a query for %c\n", package->request_name);
-        send_message(messenger_name, RESPONSE, 1, package->request_name);
+        char query_name = package->request_name;
+        if (dictionary_contains(table, (void *)(size_t)query_name)){ // if we do know this person
+            send_message(messenger_name, RESPONSE, YES, package->request_name);
+        }else{ // we don't know this person
+            send_message(messenger_name, RESPONSE, NO, package->request_name);
+        }
 
     }else if (package->type == RESPONSE){
         printf("Response message received\n");
+
+        if (package->subtype == YES){
+            char new_find = package->request_name;
+            value * new_value = (value *) malloc(sizeof(value));
+            new_value->direct = messenger_name;
+            new_value->fd = messenger_fd;
+
+            dictionary_set(table, (void *)(size_t)new_find, new_value);
+        }else{
+
+        }
     }
 
 }
@@ -232,12 +256,15 @@ void nnread(int new_neighbor_fd){
     if(!dictionary_contains(table, (void *)(size_t)new_neighbor_name)){
 
         dictionary_set(table, (void *)(size_t)new_neighbor_name, (void *)new_value);
-        printf("Robot %c is now added to my dictionary and has fd #%d\n", new_neighbor_name, new_neighbor_fd);
+        printf("Robot %c is now added to my dictionary and has fd #%d\n", 
+                                    new_neighbor_name, new_neighbor_fd);
 
         pthread_t read_from_thread;
-        if(pthread_create(&read_from_thread, NULL, read_neighbor_handler, (void *)(size_t)new_neighbor_name)){
+        if(pthread_create(&read_from_thread, NULL, read_neighbor_handler, 
+                                    (void *)(size_t)new_neighbor_name)){
             perror("pthread_create() error");
             exit(1);
+
         }
 
     }else{
@@ -268,9 +295,9 @@ void populate_seek_ports(){
             vector_push_back(seek_ports, BPORT);
             vector_push_back(seek_ports, CPORT);
             break;
-        default:
-            printf("Did not find appropriate port\n");
-            exit(1);
+        // default:
+            // printf("Did not find appropriate port\n");
+            // exit(1);
     }
 
 }
@@ -321,6 +348,7 @@ void * table_handler(){
                 printf("NEED TO CONNECT TO : %c\n", current_neighbor);
                 send_message('Z', QUERY, 0, current_neighbor);
                 sleep(1);
+                printf("Still filling out the table...\n");
             }
         }
         counter++;
@@ -361,12 +389,12 @@ void * open_ears(void * ignore){
     setsockopt(ear_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 
     if (bind(ear_fd, res->ai_addr, res->ai_addrlen) != 0) {
-        perror(NULL); 
+        perror("bind() error"); 
         exit(1);
     }
 
     if (listen(ear_fd, BACKLOG) != 0) {
-        perror(NULL); 
+        perror("listen() error"); 
         exit(1);
     }
 
@@ -398,23 +426,30 @@ void * open_ears(void * ignore){
     hints.ai_family = AF_INET;                            
     hints.ai_socktype = SOCK_STREAM;
 
+
     int s = getaddrinfo(host, port, &hints, &result);
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        exit(1);
     }
 
     int sock_fd = socket(hints.ai_family, hints.ai_socktype, 0);
     if (sock_fd == -1) {
         fprintf(stderr, "client: fail to create a socket.\n");
-        exit(1);
     }
 
-    int ok = connect(sock_fd, result->ai_addr, result->ai_addrlen);
-    if (ok == -1) {
-        fprintf(stderr, "client: fail to connect.\n");
-        exit(1);
+    while(1){
+
+        int ok = connect(sock_fd, result->ai_addr, result->ai_addrlen);
+        if (ok == -1) {
+            fprintf(stderr, "client: fail to connect.\n");
+        }else{
+            break;
+        }
+
+        sleep(1);
+
     }
+
 
 
     nnwrite(sock_fd);
@@ -452,7 +487,16 @@ void * seek_out(void * ignore){
  * main function
  * 
  */
+
+void sigpipe_handler(){
+    printf("SIGPIPE received\n");
+}
+
 int main(int argc, char * argv[]){
+
+    signal(SIGPIPE, sigpipe_handler);
+
+    (void)argc;
     my_name =  argv[1][0];
     printf("My name is %c\n", my_name);
     my_port = get_port();
@@ -486,7 +530,7 @@ int main(int argc, char * argv[]){
         exit(1);
     }
 
-    sleep(4);
+    sleep(1);
 
     pthread_t table_thread;
      if(pthread_create(&table_thread, NULL, table_handler, NULL)){
@@ -496,7 +540,7 @@ int main(int argc, char * argv[]){
 
 
 
-
+    printf("pthread_exit-ing...\n");
     pthread_exit(NULL);
 
     

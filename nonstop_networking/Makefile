@@ -15,7 +15,7 @@ CFLAGS_RELEASE = -O2 $(WARNINGS) $(INC) -std=c99 -c -MMD -MP -D_GNU_SOURCE
 
 # set up linker
 LD = clang
-LDFLAGS = -Llibs/ -lprovided -lm -pthread
+LDFLAGS = -Llibs/ -lprovided -lm -pthread -lwiringPi -lcrypt -lrt
 LDFLAGS_TSAN = $(LDFLAGS) -ltsan
 
 # the string in grep must appear in the hostname, otherwise the Makefile will

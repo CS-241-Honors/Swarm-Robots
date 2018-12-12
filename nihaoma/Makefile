@@ -7,11 +7,11 @@ EXES_STUDENT = $(EXE_CLIENT) $(EXE_SERVER)
 OBJS_CLIENT = $(EXE_CLIENT).o format.o common.o client.o
 OBJS_SERVER = $(EXE_SERVER).o format.o common.o
 
-CC = clang 
+CC = clang
 WARNINGS = -Wall -Wextra -Werror -Wno-error=unused-parameter -Wmissing-declarations -Wmissing-variable-declarations
-INC=-I./includes/ 
-CFLAGS_DEBUG   = -O0 $(WARNINGS) $(INC) -g -std=c99 -c -MMD -MP -D_GNU_SOURCE -DDEBUG 
-CFLAGS_RELEASE = -O2 $(WARNINGS) $(INC) -std=c99 -c -MMD -MP -D_GNU_SOURCE 
+INC=-I./includes/
+CFLAGS_DEBUG   = -O0 $(WARNINGS) $(INC) -g -std=c99 -c -MMD -MP -D_GNU_SOURCE -DDEBUG
+CFLAGS_RELEASE = -O2 $(WARNINGS) $(INC) -std=c99 -c -MMD -MP -D_GNU_SOURCE
 
 # set up linker
 LD = clang

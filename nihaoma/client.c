@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wiringPi.h>
+#include "wiringPi.h"
 
 
 #include <errno.h>
@@ -47,7 +47,7 @@ static int * my_pins;
 static int pinsA[4] = {2, 3, 4, 17};
 static int pinsB[4] = {27, 22, 10, 9};
 static int pinsC[4] = {11, 5, 6, 13};
-static int pinsD[4] = {21, 20, 16, 12};
+static int pinsD[4] = {12, 21, 20, 16};
 //----------------------------------------------------------------------------------
 // Structures
 /**
@@ -107,6 +107,44 @@ int * get_pins(){
 
 
 }
+
+//----------------------------------------------------------------------------------
+
+
+void turn_light_off(char neighbor_name){
+    // int index;
+    //  switch(neighbor_name){
+
+    //     case 'A':
+    //         index = 0;
+    //         break;
+    //     case 'B':
+    //         index = 1;
+    //         break;
+    //     case 'C':
+    //         index = 2;
+    //         break;
+    //     case 'D':
+    //         index = 3;
+    //         break;
+    // }
+
+    for (int i = 0; i < 4; ++i)
+    {
+         wiringPiSetupGpio ();
+        int LED = my_pins[i];
+        pinMode(LED, OUTPUT);
+
+        digitalWrite(LED, 0);
+    }
+
+//     fprintf(stderr, "delay_len: %f\n", delay_len);
+   
+    // delay(delay_len);
+    // digitalWrite(LED, 0);
+    // delay(delay_len);
+
+}
     
 
 //----------------------------------------------------------------------------------
@@ -139,8 +177,6 @@ void turn_light_on(char neighbor_name){
     // delay(delay_len);
     // digitalWrite(LED, 0);
     // delay(delay_len);
-
-
 
 }
 
@@ -581,6 +617,7 @@ int main(int argc, char * argv[]){
                       string_destructor,
                       string_default_constructor);
 
+    turn_light_off();
     populate_seek_ports();
 
     my_pins = get_pins();
